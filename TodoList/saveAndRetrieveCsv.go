@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"errors"
+	"fmt"
 	"os"
 	"os/user"
 	"path"
@@ -12,8 +13,8 @@ import (
 
 const TimeFormat string = "02.01.2006"
 
-func (n *Note) convertToCsvArray(index int) []string {
-	result := []string{strconv.Itoa(index), n.Text}
+func (n *Note) convertToCsvArray() []string {
+	result := []string{strconv.Itoa(n.Order), n.Text}
 
 	if !n.RegistrationDate.IsZero() {
 		result = append(result, n.RegistrationDate.Format(TimeFormat))
@@ -25,13 +26,18 @@ func (n *Note) convertToCsvArray(index int) []string {
 	return result
 }
 
-func NewFromCsv(line []string) Note {
-	if len(line) < 1 {
+func NewFromCsv(line []string) (Note, error) {
+	if len(line) < 2 {
 		panic("Empty notes are not allowed")
 	}
 
-	result := Note{Text: line[1]}
-	if len(line) > 1 {
+	order, parsingError := strconv.Atoi(line[0])
+	if parsingError != nil {
+		return Note{}, errors.New("Error parsing order of a note")
+	}
+
+	result := Note{Order: order, Text: line[1]}
+	if len(line) > 2 {
 		parsedTime, parsingError := time.Parse(TimeFormat, line[2])
 		if parsingError != nil {
 			panic(parsingError)
@@ -39,7 +45,7 @@ func NewFromCsv(line []string) Note {
 		result.RegistrationDate = parsedTime
 	}
 
-	if len(line) > 2 {
+	if len(line) > 3 {
 		parsedTime, parsingError := time.Parse(TimeFormat, line[3])
 		if parsingError != nil {
 			panic(parsingError)
@@ -47,18 +53,10 @@ func NewFromCsv(line []string) Note {
 		result.DueDate = parsedTime
 	}
 
-	return result
+	return result, nil
 }
 
-const (
-	pathToUserSpecificDirectory         string = "/.local/share/primotibalt"
-	pathToProgramConfigurationDirectory string = pathToUserSpecificDirectory + "/todolist"
-	pathToProgramConfigurationCsvFile   string = pathToProgramConfigurationDirectory + "/config.csv"
-	// pathToProgramConfigurationJsonFile  string = pathToProgramConfigurationDirectory + "config.json"
-	// pathToProgramConfigurationSqliteDb  string = pathToProgramConfigurationDirectory + "config.db"
-)
-
-func createAnEntry(note Note) {
+func registerNoteCsv(note Note) {
 	currentUser, currentUserErrorOnGet := user.Current()
 	if currentUserErrorOnGet != nil {
 		panic(currentUserErrorOnGet)
@@ -71,7 +69,10 @@ func createAnEntry(note Note) {
 		createFileAndDirectoryForApp(currentUser.HomeDir)
 	}
 
-	file, readingCsvError := os.OpenFile(fullPathToProgramConfigurationCsvFile, os.O_RDWR, 0644)
+	file, readingCsvError := os.OpenFile(
+		fullPathToProgramConfigurationCsvFile,
+		os.O_RDWR,
+		0644)
 	if readingCsvError != nil {
 		panic(readingCsvError)
 	}
@@ -93,10 +94,11 @@ func createAnEntry(note Note) {
 			topNumber = int(number)
 		}
 	}
+	note.Order = topNumber + 1
 
 	fileWriter := csv.NewWriter(file)
 	writingNewRecordError := fileWriter.Write(
-		note.convertToCsvArray(topNumber + 1),
+		note.convertToCsvArray(),
 	)
 	if writingNewRecordError != nil {
 		panic(writingNewRecordError)
@@ -109,7 +111,7 @@ func createAnEntry(note Note) {
 	}
 }
 
-func getAllEntries() []Note {
+func getAllEntriesCsv() []Note {
 	currentUser, currentUserErrorOnGet := user.Current()
 	if currentUserErrorOnGet != nil {
 		gettingCurrentUserError := errors.New("There is something wrong with getting current user, I'm out.")
@@ -141,31 +143,13 @@ func getAllEntries() []Note {
 
 	result := []Note{}
 	for _, line := range content {
-		result = append(result, NewFromCsv(line))
+		note, parsingError := NewFromCsv(line)
+		if parsingError != nil {
+			fmt.Println(parsingError.Error())
+		} else {
+			result = append(result, note)
+		}
 	}
 
 	return result
-}
-
-func createFileAndDirectoryForApp(homeDir string) {
-	myUserDirectoryCreationError := os.Mkdir(
-		path.Join(homeDir, pathToUserSpecificDirectory), 0o700)
-	if myUserDirectoryCreationError != nil && !os.IsExist(myUserDirectoryCreationError) {
-		panic("Wasn't able to create my user directory, give me some permissions, boi \n" +
-			myUserDirectoryCreationError.Error())
-	}
-
-	applicationDirectoryCreationError := os.Mkdir(
-		path.Join(homeDir, pathToProgramConfigurationDirectory), 0o700)
-	if applicationDirectoryCreationError != nil && !os.IsExist(applicationDirectoryCreationError) {
-		panic("Wasn't able to create my application directory, that's strange")
-	}
-
-	fileInfo, configurationFileCreationError := os.Create(
-		path.Join(homeDir, pathToProgramConfigurationCsvFile))
-	if configurationFileCreationError != nil && !os.IsExist(configurationFileCreationError) {
-		panic("Couldn't create a configuration file for you. There is something deeply wrong about your system")
-	}
-
-	defer fileInfo.Close()
 }

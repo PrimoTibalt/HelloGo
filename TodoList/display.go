@@ -1,29 +1,23 @@
 package main
 
 import (
-	"strings"
+	"strconv"
 
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Notes struct {
 	Notes []Note
+	Table table.Model
 }
 
-func (n Notes) View() string {
-	builder := strings.Builder{}
-	for _, note := range n.Notes {
-		builder.WriteString(note.Text)
-		builder.WriteString("\t")
-		builder.WriteString(note.RegistrationDate.Format(TimeFormat))
-		if !note.DueDate.IsZero() {
-			builder.WriteString("\t")
-			builder.WriteString(note.DueDate.Format(TimeFormat))
-		}
-	}
+var baseStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder())
 
-	builder.WriteRune('\n')
-	return builder.String()
+func (n Notes) View() string {
+	return baseStyle.Render(n.Table.View()) + "\n"
 }
 
 func (n Notes) Init() tea.Cmd {
@@ -35,7 +29,43 @@ func (n Notes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func displayNotes(notes []Note) {
-	p := tea.NewProgram(Notes{notes})
+	columns := []table.Column{
+		{Title: "Order", Width: 6},
+		{Title: "Text", Width: 40},
+		{Title: "RegistrationDate", Width: 18},
+		{Title: "DueDate", Width: 10},
+	}
+
+	rows := []table.Row{}
+	for i, l := range notes {
+		var dueDate string
+		if !l.DueDate.IsZero() {
+			dueDate = l.DueDate.Format(TimeFormat)
+		} else {
+			dueDate = ""
+		}
+		rows = append(rows,
+			table.Row{
+				strconv.Itoa(i),
+				l.Text,
+				l.RegistrationDate.Format(TimeFormat),
+				dueDate,
+			})
+	}
+
+	tm := table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithHeight(len(notes)+1),
+	)
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.Foreground(lipgloss.Color("0")).Bold(false)
+	tm.SetStyles(s)
+	p := tea.NewProgram(Notes{notes, tm})
 	if _, err := p.Run(); err != nil {
 		panic(err)
 	}
