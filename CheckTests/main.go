@@ -4,32 +4,21 @@ import (
 	"fmt"
 	"math/rand"
 	"slices"
-	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-
-	retriever "primotibalt/checkTests/questionsRetriever"
 )
 
-type Question struct {
-	Answer string
-	Text   string
-}
-type TestCheck struct {
-	viewport            viewport.Model
-	textarea            textarea.Model
-	Questions           []Question
-	SuccessQuestions    []Question
-	FailedQuestions     []Question
-	CurrentQuestion     *Question
-	LastQuestionSuccess bool
-}
+const (
+	paddingToLeft               = 4
+	defaultTaPlaceholder        = "Напиши ответ на вопрос"
+	failedQuestionTaPlaceholder = "Нажми Enter чтобы продолжить"
+	delimeterQuestionAnswer     = "/!/"
+)
 
 func (m TestCheck) Init() tea.Cmd {
-	return textarea.Blink
+	return tea.Batch(textarea.Blink, tea.ClearScreen)
 }
 
 func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -42,6 +31,8 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.textarea.SetWidth(msg.Width - paddingToLeft)
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -53,18 +44,44 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m = initializeModel()
 					return m, tea.Batch(taCmd, vpCmd)
 				case "c":
-					fmt.Println("You don't have anything to choose")
+					fmt.Println("Ты не имеешь ничего для выбора")
 					return m, tea.Quit
 				}
 			}
 
-			m.compareInputWithAnswer()
+			if !m.LastQuestionSuccess {
+				m.LastQuestionSuccess = true
+				m.textarea.Reset()
+				m.textarea.Placeholder = defaultTaPlaceholder
+				return m, nil
+			}
+
+			m.LastQuestionSuccess = m.isInputAndAnswerEqual()
+			if m.LastQuestionSuccess {
+				m.SuccessQuestions = append(m.SuccessQuestions, *m.CurrentQuestion)
+			} else {
+				m.textarea.Placeholder = failedQuestionTaPlaceholder
+				m.FailedQuestions = append(m.FailedQuestions, *m.CurrentQuestion)
+				splitAnswer := ""
+				answerIndex := 0
+				widthOfAnswer := utf8.RuneCountInString(m.CurrentQuestion.Answer)
+				widthOfVp := m.viewport.Width - 2
+				for answerIndex+widthOfVp < widthOfAnswer {
+					splitAnswer += m.CurrentQuestion.Answer[answerIndex : answerIndex+widthOfVp]
+					answerIndex += widthOfVp
+				}
+
+				splitAnswer += m.CurrentQuestion.Answer[answerIndex : widthOfAnswer-1]
+				m.vpFailed.SetContent(
+					fmt.Sprintf("Это неправильный ответ! Правильный ответ такой:\n\033[1m%s\033[0m\n%s",
+						m.CurrentQuestion.Answer,
+						"Нажмите на любую клавишу для продолжения"))
+			}
+
 			m.textarea.Reset()
 
-			if m.CurrentQuestion != nil {
-				questionIndex := slices.Index(m.Questions, *m.CurrentQuestion)
-				m.Questions = slices.Delete(m.Questions, questionIndex, questionIndex+1)
-			}
+			questionIndex := slices.Index(m.Questions, *m.CurrentQuestion)
+			m.Questions = slices.Delete(m.Questions, questionIndex, questionIndex+1)
 
 			questionsToAskCount := len(m.Questions)
 			if questionsToAskCount > 0 {
@@ -72,9 +89,14 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.CurrentQuestion = &m.Questions[selectedQuestionIndex]
 				m.viewport.SetContent(m.CurrentQuestion.Text)
 			} else {
-				m.viewport.SetContent(m.getResultWhenNoMoreQuestions())
-				return m, tea.Batch(taCmd, vpCmd)
+				m.setContentWhenNoMoreQuestions()
 			}
+		}
+	_:
+		if m.textarea.Length() == m.textarea.Width()*m.textarea.Height() {
+			currentContent := m.textarea.Value()
+			m.textarea.SetHeight(m.textarea.Height() + 1)
+			m.textarea.SetValue(currentContent)
 		}
 	}
 
@@ -82,10 +104,15 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m TestCheck) View() string {
+	const delimeter = "\n"
+	if !m.LastQuestionSuccess {
+		return fmt.Sprintf("%s%s%s", m.vpFailed.View(), delimeter, m.textarea.View())
+	}
 	if len(m.Questions) > 0 {
-		return fmt.Sprintf("%s%s%s", m.textarea.View(), "\n", m.viewport.View())
+		return fmt.Sprintf("%s%s%s", m.viewport.View(), delimeter, m.textarea.View())
 	} else {
-		return fmt.Sprintf("%s%s%s", m.viewport.View(), "\n", "Нажми r(reset)/c(choose) для продолжения")
+		return fmt.Sprintf("%s%s%s%s%s", m.viewport.View(), delimeter, "Нажми r(reset)/c(choose) для продолжения",
+			delimeter, m.textarea.View())
 	}
 }
 
@@ -95,80 +122,4 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func (m *TestCheck) getResultWhenNoMoreQuestions() (result string) {
-	sb := strings.Builder{}
-	if len(m.FailedQuestions) > 0 {
-		sb.WriteString(
-			fmt.Sprintf("Неправильно ответил на %d вопросов из %d.\n",
-				len(m.FailedQuestions),
-				len(m.FailedQuestions)+len(m.SuccessQuestions)))
-		sb.WriteString("Заваленные вопросы:\n")
-		for _, question := range m.FailedQuestions {
-			sb.WriteString(fmt.Sprintf("%+v\n", question))
-		}
-	} else {
-		sb.WriteString("Вы не завалили ни одного вопроса. Молодец!\n")
-	}
-
-	result = sb.String()
-	return
-}
-
-func (m *TestCheck) compareInputWithAnswer() {
-	if strings.Trim(m.textarea.Value(), " \n\r") == m.CurrentQuestion.Answer {
-		m.SuccessQuestions = append(m.SuccessQuestions, *m.CurrentQuestion)
-		m.LastQuestionSuccess = true
-	} else {
-		m.FailedQuestions = append(m.FailedQuestions, *m.CurrentQuestion)
-		m.LastQuestionSuccess = false
-	}
-}
-
-func initializeModel() (testCheckModel TestCheck) {
-	topics := retriever.RetrieveTopicToPathMap()
-	fmt.Println("Выбери топик для теста:")
-	orderedMapOfTopics := make(map[int]string, len(topics))
-	i := 1
-	for topicName := range topics {
-		orderedMapOfTopics[i] = topicName
-		fmt.Printf("%d. %s\n", i, topicName)
-		i++
-	}
-
-	var num int
-	fmt.Scan(&num)
-	qaPairs := retriever.TopicQuestions(topics[orderedMapOfTopics[num]])
-	questions := []Question{}
-	for _, pair := range qaPairs {
-		if !strings.Contains(pair, "//") {
-			continue
-		}
-		fmt.Printf("%s\n", pair)
-		qa := strings.Split(pair, "//")
-		answer := qa[1]
-		question := qa[0]
-		questions = append(questions, Question{answer, question})
-	}
-	currentQuestion := &questions[rand.Intn(len(questions))]
-
-	textAreaModel := textarea.New()
-	textAreaModel.Focus()
-	textAreaModel.Placeholder = "Напиши ответ на вопрос"
-	textAreaModel.KeyMap = textarea.DefaultKeyMap
-	textAreaModel.FocusedStyle.CursorLine = lipgloss.NewStyle()
-
-	vpModel := viewport.New(100, 8)
-	vpModel.SetContent(currentQuestion.Text)
-	testCheckModel = TestCheck{
-		vpModel,
-		textAreaModel,
-		questions,
-		[]Question{},
-		[]Question{},
-		currentQuestion,
-		false,
-	}
-	return
 }
