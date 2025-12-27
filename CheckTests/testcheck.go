@@ -5,7 +5,9 @@ import (
 	"math/rand"
 	"os"
 	retriever "primotibalt/checkTests/questionsRetriever"
+	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -114,4 +116,37 @@ func initializeModel() (testCheckModel TestCheck) {
 		true,
 	}
 	return
+}
+
+func (m *TestCheck) prepareNextQuestion() {
+	questionIndex := slices.Index(m.Questions, *m.CurrentQuestion)
+	m.Questions = slices.Delete(m.Questions, questionIndex, questionIndex+1)
+
+	questionsToAskCount := len(m.Questions)
+	if questionsToAskCount > 0 {
+		selectedQuestionIndex := rand.Intn(questionsToAskCount)
+		m.CurrentQuestion = &m.Questions[selectedQuestionIndex]
+		m.viewport.SetContent(m.CurrentQuestion.Text)
+	} else {
+		m.setContentWhenNoMoreQuestions()
+	}
+}
+
+func (m *TestCheck) prepareFailedVpContent() {
+	m.textarea.Placeholder = failedQuestionTaPlaceholder
+	m.FailedQuestions = append(m.FailedQuestions, *m.CurrentQuestion)
+	var splitAnswer strings.Builder
+	answerIndex := 0
+	widthOfAnswer := utf8.RuneCountInString(m.CurrentQuestion.Answer)
+	widthOfVp := m.viewport.Width
+	for answerIndex+widthOfVp < widthOfAnswer {
+		splitAnswer.WriteString(m.CurrentQuestion.Answer[answerIndex:answerIndex+widthOfVp] + "\n")
+		answerIndex += widthOfVp
+	}
+
+	splitAnswer.WriteString(m.CurrentQuestion.Answer[answerIndex : widthOfAnswer-1])
+	m.vpFailed.SetContent(
+		fmt.Sprintf("Это неправильный ответ! Правильный ответ такой:\n\033[1m%s\033[0m\n%s",
+			splitAnswer.String(),
+			"Нажмите на любую клавишу для продолжения"))
 }

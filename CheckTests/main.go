@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
-	"slices"
-	"unicode/utf8"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -38,61 +36,41 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
-			if len(m.Questions) < 1 {
-				switch msg.String() {
-				case "r", "R":
-					m = initializeModel()
-					return m, tea.Batch(taCmd, vpCmd)
-				case "c":
-					fmt.Println("Ты не имеешь ничего для выбора")
-					return m, tea.Quit
-				}
-			}
-
 			if !m.LastQuestionSuccess {
+				m.prepareNextQuestion()
 				m.LastQuestionSuccess = true
 				m.textarea.Reset()
 				m.textarea.Placeholder = defaultTaPlaceholder
 				return m, nil
 			}
 
+			if len(m.Questions) < 1 {
+				switch strings.Trim(m.textarea.Value(), " \n") {
+				case "r", "R", "reset":
+					m = initializeModel()
+					return m, tea.Batch(taCmd, vpCmd, tea.ClearScreen)
+				case "c":
+					fmt.Println("Ты не имеешь ничего для выбора")
+					return m, tea.Quit
+				default:
+					return m, tea.Quit
+				}
+			}
+
 			m.LastQuestionSuccess = m.isInputAndAnswerEqual()
 			if m.LastQuestionSuccess {
 				m.SuccessQuestions = append(m.SuccessQuestions, *m.CurrentQuestion)
 			} else {
-				m.textarea.Placeholder = failedQuestionTaPlaceholder
-				m.FailedQuestions = append(m.FailedQuestions, *m.CurrentQuestion)
-				splitAnswer := ""
-				answerIndex := 0
-				widthOfAnswer := utf8.RuneCountInString(m.CurrentQuestion.Answer)
-				widthOfVp := m.viewport.Width - 2
-				for answerIndex+widthOfVp < widthOfAnswer {
-					splitAnswer += m.CurrentQuestion.Answer[answerIndex : answerIndex+widthOfVp]
-					answerIndex += widthOfVp
-				}
-
-				splitAnswer += m.CurrentQuestion.Answer[answerIndex : widthOfAnswer-1]
-				m.vpFailed.SetContent(
-					fmt.Sprintf("Это неправильный ответ! Правильный ответ такой:\n\033[1m%s\033[0m\n%s",
-						m.CurrentQuestion.Answer,
-						"Нажмите на любую клавишу для продолжения"))
+				m.prepareFailedVpContent()
 			}
 
 			m.textarea.Reset()
 
-			questionIndex := slices.Index(m.Questions, *m.CurrentQuestion)
-			m.Questions = slices.Delete(m.Questions, questionIndex, questionIndex+1)
-
-			questionsToAskCount := len(m.Questions)
-			if questionsToAskCount > 0 {
-				selectedQuestionIndex := rand.Intn(questionsToAskCount)
-				m.CurrentQuestion = &m.Questions[selectedQuestionIndex]
-				m.viewport.SetContent(m.CurrentQuestion.Text)
-			} else {
-				m.setContentWhenNoMoreQuestions()
+			if m.LastQuestionSuccess {
+				m.prepareNextQuestion()
 			}
 		}
-	_:
+	default:
 		if m.textarea.Length() == m.textarea.Width()*m.textarea.Height() {
 			currentContent := m.textarea.Value()
 			m.textarea.SetHeight(m.textarea.Height() + 1)

@@ -1,4 +1,5 @@
-package questionsRetriever
+// Package questionsretriever
+package questionsretriever
 
 import (
 	"os"
@@ -7,8 +8,8 @@ import (
 )
 
 func RetrieveTopicToPathMap() (result map[string]string) {
-	curDir, getCurDirErr := os.Getwd()
-	pathToTopics := path.Join(curDir, "Questions")
+	curDir, getCurDirErr := os.Executable()
+	pathToTopics := path.Join(curDir, "../Questions")
 	if getCurDirErr != nil {
 		panic(getCurDirErr)
 	}
