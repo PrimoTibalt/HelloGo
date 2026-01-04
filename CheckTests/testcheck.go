@@ -6,6 +6,7 @@ import (
 	"os"
 	retriever "primotibalt/checkTests/questionsRetriever"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -31,6 +32,15 @@ type TestCheck struct {
 	LastQuestionSuccess bool
 }
 
+const (
+	smallAnswerLen           = 10
+	mediumAnswerLen          = 15
+	bigAnswerLen             = 25
+	paragraphAnswerLen       = 100
+	poemAnswerLength         = 250
+	dissertationAnswerLength = 1000
+)
+
 func (m *TestCheck) setContentWhenNoMoreQuestions() {
 	sb := strings.Builder{}
 	if len(m.FailedQuestions) > 0 {
@@ -52,7 +62,24 @@ func (m *TestCheck) setContentWhenNoMoreQuestions() {
 }
 
 func (m *TestCheck) isInputAndAnswerEqual() bool {
-	return strings.Trim(m.textarea.Value(), " \n\r") == m.CurrentQuestion.Answer
+	distance := Ld(strings.Trim(m.textarea.Value(), " \n\r"), m.CurrentQuestion.Answer)
+
+	answerLen := utf8.RuneCountInString(m.CurrentQuestion.Answer)
+	if answerLen <= smallAnswerLen {
+		return distance <= 1
+	} else if answerLen <= mediumAnswerLen {
+		return distance <= 2
+	} else if answerLen <= bigAnswerLen {
+		return distance <= 4
+	} else if answerLen <= paragraphAnswerLen {
+		return distance <= 8
+	} else if answerLen <= poemAnswerLength {
+		return distance <= 16
+	} else if answerLen <= dissertationAnswerLength {
+		return distance <= 32
+	} else {
+		return distance < 100
+	}
 }
 
 func initializeModel() (testCheckModel TestCheck) {
@@ -132,7 +159,7 @@ func (m *TestCheck) prepareNextQuestion() {
 	}
 }
 
-func (m *TestCheck) prepareFailedVpContent() {
+func (m *TestCheck) prepareFailedVpContent(distance int) {
 	m.textarea.Placeholder = failedQuestionTaPlaceholder
 	m.FailedQuestions = append(m.FailedQuestions, *m.CurrentQuestion)
 	var splitAnswer strings.Builder
@@ -145,6 +172,7 @@ func (m *TestCheck) prepareFailedVpContent() {
 	}
 
 	splitAnswer.WriteString(m.CurrentQuestion.Answer[answerIndex : widthOfAnswer-1])
+	splitAnswer.WriteString("\nDistance was " + strconv.Itoa(distance))
 	m.vpFailed.SetContent(
 		fmt.Sprintf("Это неправильный ответ! Правильный ответ такой:\n\033[1m%s\033[0m\n%s",
 			splitAnswer.String(),
