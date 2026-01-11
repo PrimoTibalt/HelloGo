@@ -8,10 +8,15 @@ import (
 )
 
 func RetrieveTopicToPathMap() (result map[string]string) {
-	curDir, getCurDirErr := os.Executable()
-	pathToTopics := path.Join(curDir, "../Questions")
-	if getCurDirErr != nil {
-		panic(getCurDirErr)
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		panic(err)
+	}
+	pathToTopics := path.Join(cacheDir, "Questions")
+	if _, err := os.Stat(pathToTopics); err != nil {
+		if err = os.Mkdir(pathToTopics, 0o644); err != nil {
+			panic(err)
+		}
 	}
 
 	questionsDirEntries, getqInfoErr := os.ReadDir(pathToTopics)
