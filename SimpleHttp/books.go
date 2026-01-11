@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -16,43 +17,55 @@ var (
 
 func main() {
 	client := &http.Client{}
-	request, error := http.NewRequest("GET",
+	request, createRequestError := http.NewRequest("GET",
 		"https://novelfire.net/genre-all/sort-new/status-all/all-novel", nil)
-	if error != nil {
-		fmt.Println(error.Error())
+	if createRequestError != nil {
+		panic(createRequestError)
 	}
 	request.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
 	request.Header.Add("Referer", "https://novelfire.net")
-	response, err := client.Do(request)
-	if err != nil {
-		fmt.Println(err.Error())
+	response, getAllNovelsErr := client.Do(request)
+	if getAllNovelsErr != nil {
+		panic(getAllNovelsErr)
 	}
 
 	if response.StatusCode != 200 {
-		fmt.Println("Oops, you have got " + strconv.Itoa(response.StatusCode) + " as a response")
+		panic(errors.New("Oops, you have got " + strconv.Itoa(response.StatusCode) + " as a response"))
 	}
 	defer response.Body.Close()
+
 	resultHTML, parsingError := html.Parse(response.Body)
 	if parsingError != nil {
-		fmt.Println(parsingError.Error())
+		panic(parsingError)
 	}
 
-	titles := &[]string{}
+	titles := map[string]string{}
 	wg.Add(1)
 	searchInDoc(resultHTML, titles)
 	wg.Wait()
-	for _, title := range *titles {
-		fmt.Println(title)
+	for title, href := range titles {
+		fmt.Println(title, href)
 	}
 }
 
-func searchInDoc(doc *html.Node, result *[]string) {
+func searchInDoc(doc *html.Node, result map[string]string) {
 	for _, attribute := range doc.Attr {
 		if attribute.Key == "class" && attribute.Val == "novel-item" {
+			var href string
+			for _, attr := range doc.FirstChild.Attr {
+				if attr.Key == "href" {
+					href = attr.Val
+				}
+			}
+
+			if href == "" {
+				break
+			}
+
 			for _, attr := range doc.FirstChild.Attr {
 				if attr.Key == "title" {
 					rwl.Lock()
-					*result = append(*result, attr.Val)
+					result[attr.Val] = href
 					rwl.Unlock()
 					wg.Done()
 					return
