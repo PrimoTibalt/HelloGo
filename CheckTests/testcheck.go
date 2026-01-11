@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	retriever "primotibalt/checkTests/questionsRetriever"
 	"slices"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
@@ -61,76 +60,57 @@ func (m *TestCheck) setContentWhenNoMoreQuestions() {
 	m.viewport.Height = strings.Count(resultString, "\n") + 1
 }
 
-func (m *TestCheck) isInputAndAnswerEqual() bool {
-	distance := Ld(strings.Trim(m.textarea.Value(), " \n\r"), m.CurrentQuestion.Answer)
-
-	answerLen := utf8.RuneCountInString(m.CurrentQuestion.Answer)
-	if answerLen <= smallAnswerLen {
-		return distance <= 1
-	} else if answerLen <= mediumAnswerLen {
-		return distance <= 2
-	} else if answerLen <= bigAnswerLen {
-		return distance <= 4
-	} else if answerLen <= paragraphAnswerLen {
-		return distance <= 8
-	} else if answerLen <= poemAnswerLength {
-		return distance <= 16
-	} else if answerLen <= dissertationAnswerLength {
-		return distance <= 32
-	} else {
-		return distance < 100
-	}
+func (m *TestCheck) computeDistanceBetweenInputAndAnswer() (distance int) {
+	distance = Ld(strings.Trim(m.textarea.Value(), " \n\r"), m.CurrentQuestion.Answer)
+	return
 }
 
-func initializeModel() (testCheckModel TestCheck) {
-	topics := retriever.RetrieveTopicToPathMap()
-	fmt.Println("Выбери топик для теста:")
-	orderedMapOfTopics := make(map[int]string, len(topics))
-	i := 1
-	for topicName := range topics {
-		orderedMapOfTopics[i] = topicName
-		fmt.Printf("%d. %s\n", i, topicName)
-		i++
+func (m *TestCheck) IsInputAndAnswerEqual(distance int) (result bool) {
+	answerLen := utf8.RuneCountInString(m.CurrentQuestion.Answer)
+	if answerLen <= smallAnswerLen {
+		result = distance <= 1
+	} else if answerLen <= mediumAnswerLen {
+		result = distance <= 2
+	} else if answerLen <= bigAnswerLen {
+		result = distance <= 4
+	} else if answerLen <= paragraphAnswerLen {
+		result = distance <= 8
+	} else if answerLen <= poemAnswerLength {
+		result = distance <= 16
+	} else if answerLen <= dissertationAnswerLength {
+		result = distance <= 32
+	} else {
+		result = distance < 100
 	}
 
-	var num int
-	fmt.Scan(&num)
-	qaPairs := retriever.TopicQuestions(topics[orderedMapOfTopics[num]])
-	questions := []Question{}
-	for _, pair := range qaPairs {
-		if !strings.Contains(pair, delimeterQuestionAnswer) {
-			continue
-		}
+	return
+}
 
-		qa := strings.Split(pair, delimeterQuestionAnswer)
-		question := qa[0]
-		answer := qa[1]
-		questions = append(questions, Question{answer, question})
-	}
-
-	width, _, termSizeErr := term.GetSize(os.Stdout.Fd())
+func initializeModel(questions []Question) (testCheckModel TestCheck) {
+	width, height, termSizeErr := term.GetSize(os.Stdout.Fd())
+	rightPanelWidth := width / 3
+	leftPanelWidth := width - rightPanelWidth
 	if termSizeErr != nil {
 		width = 80
 	}
 
-	currentQuestion := &questions[rand.Intn(len(questions))]
+	currentQuestion := questions[rand.Intn(len(questions))]
 
 	taModel := textarea.New()
 	taModel.Focus()
-	taModel.SetHeight(1)
+	taModel.SetHeight(2)
 	taModel.KeyMap = textarea.DefaultKeyMap
 	taModel.Placeholder = defaultTaPlaceholder
 	taModel.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	taModel.ShowLineNumbers = false
-	taModel.SetWidth(width - paddingToLeft)
+	taModel.SetWidth(leftPanelWidth)
 
-	vpModel := viewport.New(width-paddingToLeft, 3)
+	vpModel := viewport.New(leftPanelWidth, 5)
 	vpModel.SetContent(currentQuestion.Text)
 
-	vpFailedModel := viewport.New(width-paddingToLeft, 7)
-	vpFailedModelBorder := lipgloss.NormalBorder()
-	vpFailedModel.Style = vpFailedModel.Style.Border(vpFailedModelBorder).
-		BorderForeground(lipgloss.Color("9"))
+	vpFailedModel := viewport.New(width/3, height-2)
+	vpFailedModel.KeyMap.Down = key.NewBinding(key.WithKeys("down"))
+	vpFailedModel.KeyMap.Up = key.NewBinding(key.WithKeys("up"))
 
 	testCheckModel = TestCheck{
 		vpModel,
@@ -139,7 +119,7 @@ func initializeModel() (testCheckModel TestCheck) {
 		questions,
 		[]Question{},
 		[]Question{},
-		currentQuestion,
+		&currentQuestion,
 		true,
 	}
 	return
@@ -159,22 +139,16 @@ func (m *TestCheck) prepareNextQuestion() {
 	}
 }
 
-func (m *TestCheck) prepareFailedVpContent(distance int) {
-	m.textarea.Placeholder = failedQuestionTaPlaceholder
-	m.FailedQuestions = append(m.FailedQuestions, *m.CurrentQuestion)
-	var splitAnswer strings.Builder
-	answerIndex := 0
-	widthOfAnswer := utf8.RuneCountInString(m.CurrentQuestion.Answer)
-	widthOfVp := m.viewport.Width
-	for answerIndex+widthOfVp < widthOfAnswer {
-		splitAnswer.WriteString(m.CurrentQuestion.Answer[answerIndex:answerIndex+widthOfVp] + "\n")
-		answerIndex += widthOfVp
+func (m *TestCheck) prepareFailedVpContent(yourAnswer string) {
+	var builder strings.Builder
+	for l := range strings.SplitSeq(m.vpFailed.View(), "\n") {
+		if l != "" {
+			builder.WriteString(l + "\n")
+		}
 	}
 
-	splitAnswer.WriteString(m.CurrentQuestion.Answer[answerIndex : widthOfAnswer-1])
-	splitAnswer.WriteString("\nDistance was " + strconv.Itoa(distance))
 	m.vpFailed.SetContent(
-		fmt.Sprintf("Это неправильный ответ! Правильный ответ такой:\n\033[1m%s\033[0m\n%s",
-			splitAnswer.String(),
-			"Нажмите на любую клавишу для продолжения"))
+		"V: " + m.CurrentQuestion.Answer + "\n" +
+			"X: " + yourAnswer + "\n" +
+			builder.String())
 }

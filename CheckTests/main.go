@@ -2,17 +2,20 @@ package main
 
 import (
 	"fmt"
+	"os"
+	retriever "primotibalt/checkTests/questionsRetriever"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const (
-	paddingToLeft               = 4
-	defaultTaPlaceholder        = "Напиши ответ на вопрос"
-	failedQuestionTaPlaceholder = "Нажми Enter чтобы продолжить"
-	delimeterQuestionAnswer     = "/!/"
+	paddingToLeft           = 4
+	defaultTaPlaceholder    = "Напиши ответ на вопрос"
+	delimeterQuestionAnswer = "/!/"
 )
 
 func (m TestCheck) Init() tea.Cmd {
@@ -21,33 +24,25 @@ func (m TestCheck) Init() tea.Cmd {
 
 func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
-		taCmd tea.Cmd
-		vpCmd tea.Cmd
+		taCmd       tea.Cmd
+		vpCmd       tea.Cmd
+		vpFailedCmd tea.Cmd
 	)
 
 	m.textarea, taCmd = m.textarea.Update(msg)
 	m.viewport, vpCmd = m.viewport.Update(msg)
+	m.vpFailed, vpFailedCmd = m.vpFailed.Update(msg)
 
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.textarea.SetWidth(msg.Width - paddingToLeft)
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
-			if !m.LastQuestionSuccess {
-				m.prepareNextQuestion()
-				m.LastQuestionSuccess = true
-				m.textarea.Reset()
-				m.textarea.Placeholder = defaultTaPlaceholder
-				return m, nil
-			}
-
 			if len(m.Questions) < 1 {
 				switch strings.Trim(m.textarea.Value(), " \n") {
 				case "r", "R", "reset":
-					m = initializeModel()
+					m = initializeModel(m.Questions)
 					return m, tea.Batch(taCmd, vpCmd, tea.ClearScreen)
 				case "c":
 					fmt.Println("Ты не имеешь ничего для выбора")
@@ -57,18 +52,17 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			m.LastQuestionSuccess = m.isInputAndAnswerEqual()
+			distance := m.computeDistanceBetweenInputAndAnswer()
+			m.LastQuestionSuccess = m.IsInputAndAnswerEqual(distance)
 			if m.LastQuestionSuccess {
 				m.SuccessQuestions = append(m.SuccessQuestions, *m.CurrentQuestion)
 			} else {
-				m.prepareFailedVpContent()
+				m.FailedQuestions = append(m.FailedQuestions, *m.CurrentQuestion)
+				m.prepareFailedVpContent(strings.Trim(m.textarea.Value(), " \n\r"))
 			}
 
 			m.textarea.Reset()
-
-			if m.LastQuestionSuccess {
-				m.prepareNextQuestion()
-			}
+			m.prepareNextQuestion()
 		}
 	default:
 		if m.textarea.Length() == m.textarea.Width()*m.textarea.Height() {
@@ -78,26 +72,71 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m, tea.Batch(taCmd, vpCmd)
+	return m, tea.Batch(taCmd, vpCmd, vpFailedCmd)
 }
 
 func (m TestCheck) View() string {
 	const delimeter = "\n"
-	if !m.LastQuestionSuccess {
-		return fmt.Sprintf("%s%s%s", m.vpFailed.View(), delimeter, m.textarea.View())
-	}
+
 	if len(m.Questions) > 0 {
-		return fmt.Sprintf("%s%s%s", m.viewport.View(), delimeter, m.textarea.View())
+		return lipgloss.JoinHorizontal(lipgloss.Left,
+			lipgloss.JoinVertical(lipgloss.Left, m.viewport.View(), m.textarea.View()),
+			m.vpFailed.View())
 	} else {
-		return fmt.Sprintf("%s%s%s%s%s", m.viewport.View(), delimeter, "Нажми r(reset)/c(choose) для продолжения",
-			delimeter, m.textarea.View())
+		return fmt.Sprintf("%s%s%s%s",
+			lipgloss.JoinHorizontal(lipgloss.Left,
+				lipgloss.JoinVertical(lipgloss.Left, m.viewport.View(), m.textarea.View()),
+				m.vpFailed.View()),
+			delimeter,
+			"Нажми r(reset)/c(choose) для продолжения",
+			delimeter)
 	}
 }
 
 func main() {
-	program := tea.NewProgram(initializeModel())
-	_, err := program.Run()
-	if err != nil {
-		panic(err)
+	for {
+		questions := []Question{}
+		topics := retriever.RetrieveTopicToPathMap()
+		options := make([]huh.Option[string], len(topics))
+		var i int
+		for topic, path := range topics {
+			options[i] = huh.NewOption(topic, path)
+			i++
+		}
+		var selectedPaths []string
+		err := huh.NewMultiSelect[string]().
+			Title("Выбери топик(и) для теста:").
+			Options(options...).
+			Value(&selectedPaths).
+			Run()
+		if err != nil {
+			if err == huh.ErrUserAborted {
+				os.Exit(0)
+			}
+		}
+
+		if len(selectedPaths) == 0 {
+			continue
+		}
+
+		for _, path := range selectedPaths {
+			qaPairs := retriever.TopicQuestions(path)
+			for _, pair := range qaPairs {
+				if !strings.Contains(pair, delimeterQuestionAnswer) {
+					continue
+				}
+
+				qa := strings.Split(pair, delimeterQuestionAnswer)
+				question := qa[0]
+				answer := qa[1]
+				questions = append(questions, Question{answer, question})
+			}
+		}
+
+		program := tea.NewProgram(initializeModel(questions))
+		_, err = program.Run()
+		if err != nil {
+			panic(err)
+		}
 	}
 }
