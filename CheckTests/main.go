@@ -45,9 +45,6 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "r", "R", "reset":
 					m = initializeModel(slices.Concat(m.SuccessQuestions, m.FailedQuestions))
 					return m, tea.Batch(taCmd, vpCmd, tea.ClearScreen)
-				case "c":
-					fmt.Println("Ты не имеешь ничего для выбора")
-					return m, tea.Quit
 				default:
 					return m, tea.Quit
 				}
@@ -89,7 +86,7 @@ func (m TestCheck) View() string {
 				lipgloss.JoinVertical(lipgloss.Left, m.viewport.View(), m.textarea.View()),
 				m.vpFailed.View()),
 			delimeter,
-			"Нажми r(reset)/c(choose) для продолжения",
+			"Нажми r(reset) для продолжения. Любую другую для возвращения к списку.",
 			delimeter)
 	}
 }

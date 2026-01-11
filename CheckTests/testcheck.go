@@ -20,6 +20,33 @@ type Question struct {
 	Text   string
 }
 
+func (q *Question) PrintAnswer(consoleWidth int) string {
+	return print(q.Answer, consoleWidth)
+}
+
+func (q *Question) PrintText(consoleWidth int) string {
+	return print(q.Text, consoleWidth)
+}
+
+func print(text string, consoleWidth int) (splitText string) {
+	var builder strings.Builder
+	var counter int
+	var index int
+	runes := []rune(text)
+	for counter < len(runes) {
+		if index == consoleWidth {
+			index = index - consoleWidth
+			builder.WriteRune('\n')
+		}
+		builder.WriteRune(runes[counter])
+		index++
+		counter++
+	}
+
+	splitText = builder.String()
+	return
+}
+
 type TestCheck struct {
 	viewport            viewport.Model
 	textarea            textarea.Model
@@ -88,7 +115,7 @@ func (m *TestCheck) IsInputAndAnswerEqual(distance int) (result bool) {
 
 func initializeModel(questions []Question) (testCheckModel TestCheck) {
 	width, height, termSizeErr := term.GetSize(os.Stdout.Fd())
-	rightPanelWidth := width / 3
+	rightPanelWidth := width * 3 / 7
 	leftPanelWidth := width - rightPanelWidth
 	if termSizeErr != nil {
 		width = 80
@@ -105,12 +132,26 @@ func initializeModel(questions []Question) (testCheckModel TestCheck) {
 	taModel.ShowLineNumbers = false
 	taModel.SetWidth(leftPanelWidth)
 
-	vpModel := viewport.New(leftPanelWidth, 5)
+	vpModel := viewport.New(leftPanelWidth, 8)
+	vpModel.KeyMap = viewport.KeyMap{}
+	vpModel.KeyMap.Down = key.NewBinding(key.WithKeys("down"))
+	vpModel.KeyMap.Up = key.NewBinding(key.WithKeys("up"))
+	vpModel.Style = vpModel.Style.Border(
+		lipgloss.NormalBorder(),
+		true, true).
+		BorderForeground(lipgloss.Color("6")).
+		Foreground(lipgloss.Color("180"))
+
 	vpModel.SetContent(currentQuestion.Text)
 
-	vpFailedModel := viewport.New(width/3, height-2)
+	vpFailedModel := viewport.New(rightPanelWidth, height-2)
+	vpFailedModel.KeyMap = viewport.KeyMap{}
 	vpFailedModel.KeyMap.Down = key.NewBinding(key.WithKeys("down"))
 	vpFailedModel.KeyMap.Up = key.NewBinding(key.WithKeys("up"))
+	vpFailedModel.Style = vpFailedModel.Style.Border(
+		lipgloss.NormalBorder(),
+		true, false, true, false).
+		BorderForeground(lipgloss.Color("52"))
 
 	testCheckModel = TestCheck{
 		vpModel,
@@ -133,7 +174,7 @@ func (m *TestCheck) prepareNextQuestion() {
 	if questionsToAskCount > 0 {
 		selectedQuestionIndex := rand.Intn(questionsToAskCount)
 		m.CurrentQuestion = &m.Questions[selectedQuestionIndex]
-		m.viewport.SetContent(m.CurrentQuestion.Text)
+		m.viewport.SetContent(m.CurrentQuestion.PrintText(m.viewport.Width))
 	} else {
 		m.setContentWhenNoMoreQuestions()
 	}
@@ -148,7 +189,7 @@ func (m *TestCheck) prepareFailedVpContent(yourAnswer string) {
 	}
 
 	m.vpFailed.SetContent(
-		"V: " + m.CurrentQuestion.Answer + "\n" +
-			"X: " + yourAnswer + "\n" +
+		print("V: "+m.CurrentQuestion.Answer, m.vpFailed.Width-1) + "\n" +
+			print("X: "+yourAnswer, m.vpFailed.Width-1) + "\n" +
 			builder.String())
 }
