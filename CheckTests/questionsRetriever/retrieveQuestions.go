@@ -8,13 +8,13 @@ import (
 )
 
 func RetrieveTopicToPathMap() (result map[string]string) {
-	cacheDir, err := os.UserCacheDir()
+	cacheDir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
-	pathToTopics := path.Join(cacheDir, "Questions")
+	pathToTopics := path.Join(cacheDir, "/.local/share/primotibalt/Questions")
 	if _, err := os.Stat(pathToTopics); err != nil {
-		if err = os.Mkdir(pathToTopics, 0o644); err != nil {
+		if err = os.Mkdir(pathToTopics, 0o751); err != nil {
 			panic(err)
 		}
 	}
