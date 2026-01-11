@@ -1,3 +1,4 @@
+// Package lexer
 package lexer
 
 import (
@@ -33,21 +34,43 @@ func (l *Lexer) NextToken() token.Token {
 	l.skipWhitespaces()
 	switch l.ch {
 	case '=':
-		tok = newToken(token.ASSIGN, l.ch)
+		if nextCh := l.peekChar(); nextCh == '=' {
+			tok = token.Token{Type: token.EQ, Literal: string(l.ch) + string(nextCh)}
+			l.readChar()
+		} else {
+			tok = newToken(token.ASSIGN, l.ch)
+		}
 	case ';':
 		tok = newToken(token.SEMICOLON, l.ch)
 	case '(':
-		tok = newToken(token.LBRACE, l.ch)
-	case ')':
-		tok = newToken(token.RBRACE, l.ch)
-	case '{':
 		tok = newToken(token.LPAREN, l.ch)
-	case '}':
+	case ')':
 		tok = newToken(token.RPAREN, l.ch)
+	case '{':
+		tok = newToken(token.LBRACE, l.ch)
+	case '}':
+		tok = newToken(token.RBRACE, l.ch)
 	case '+':
 		tok = newToken(token.PLUS, l.ch)
 	case ',':
 		tok = newToken(token.COMMA, l.ch)
+	case '!':
+		if nextCh := l.peekChar(); nextCh == '=' {
+			tok = token.Token{Type: token.NOT_EQ, Literal: string(l.ch) + string(nextCh)}
+			l.readChar()
+		} else {
+			tok = newToken(token.BANG, l.ch)
+		}
+	case '*':
+		tok = newToken(token.ASTERISK, l.ch)
+	case '/':
+		tok = newToken(token.SLASH, l.ch)
+	case '<':
+		tok = newToken(token.LT, l.ch)
+	case '>':
+		tok = newToken(token.GT, l.ch)
+	case '-':
+		tok = newToken(token.MINUS, l.ch)
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF
@@ -67,6 +90,14 @@ func (l *Lexer) NextToken() token.Token {
 
 	l.readChar()
 	return tok
+}
+
+func (l *Lexer) peekChar() byte {
+	if l.readPosition >= len(l.input) {
+		return 0
+	}
+
+	return l.input[l.readPosition]
 }
 
 func (l *Lexer) readIdentifier() string {
