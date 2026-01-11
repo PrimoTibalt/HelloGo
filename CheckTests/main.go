@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	retriever "primotibalt/checkTests/questionsRetriever"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -42,7 +43,7 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.Questions) < 1 {
 				switch strings.Trim(m.textarea.Value(), " \n") {
 				case "r", "R", "reset":
-					m = initializeModel(m.Questions)
+					m = initializeModel(slices.Concat(m.SuccessQuestions, m.FailedQuestions))
 					return m, tea.Batch(taCmd, vpCmd, tea.ClearScreen)
 				case "c":
 					fmt.Println("Ты не имеешь ничего для выбора")
