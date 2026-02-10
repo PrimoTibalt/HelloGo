@@ -48,12 +48,14 @@ func testKnowledgeOnTheTopicFunc(topics map[string]string) {
 	RunKnowledgeTest(selectedPaths)
 }
 
-func addNewQuestionToATopicFunc(topics map[string]string) {
+func addNewQuestionToTopicFunc(topics map[string]string) {
+	selectedPath := ChooseTopic(topics)
+	RunTopicQuestionAppend(selectedPath)
 }
 
 func init() {
 	mainOptions = map[string]func(map[string]string){
-		addNewQuestionToATopic:  addNewQuestionToATopicFunc,
+		addNewQuestionToATopic:  addNewQuestionToTopicFunc,
 		testKnowledgeOnTheTopic: testKnowledgeOnTheTopicFunc,
 	}
 }
