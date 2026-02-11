@@ -2,7 +2,7 @@ package main
 
 import (
 	"os"
-	retriever "primotibalt/checkTests/questionsRetriever"
+	persistence "primotibalt/checkTests/topicPersistence"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -17,6 +17,7 @@ type AppendQuestion struct {
 	LeftPanelVp viewport.Model
 	QaForm      *huh.Form
 	QuestionSet bool
+	PathToFile  string
 }
 
 var (
@@ -47,19 +48,21 @@ func ChooseTopic(topics map[string]string) (selectedPath string) {
 
 func RunTopicQuestionAppend(selectedPath string) {
 	questions := []Question{}
-	qaPairs := retriever.TopicQuestions(selectedPath)
+	qaPairs := persistence.TopicQuestions(selectedPath)
 	for _, pair := range qaPairs {
-		if !strings.Contains(pair, delimeterQuestionAnswer) {
+		if !strings.Contains(pair, persistence.DelimeterQuestionAnswer) {
 			continue
 		}
 
-		qa := strings.Split(pair, delimeterQuestionAnswer)
+		qa := strings.Split(pair, persistence.DelimeterQuestionAnswer)
 		question := qa[0]
 		answer := qa[1]
 		questions = append(questions, Question{answer, question})
 	}
 
-	program := tea.NewProgram(initializeQuestionAppendModel(questions))
+	model := initializeQuestionAppendModel(questions)
+	model.PathToFile = selectedPath
+	program := tea.NewProgram(model)
 	_, err := program.Run()
 	if err != nil {
 		panic(err)
@@ -84,6 +87,7 @@ func (appendQuestionModel AppendQuestion) Update(msg tea.Msg) (tea.Model, tea.Cm
 				appendQuestionModel.Questions = append(appendQuestionModel.Questions, Question{Text: question.(string), Answer: answer.(string)})
 				appendQuestionModel.QuestionSet = false
 				appendQuestionModel.QaForm = getQaForm()
+				persistence.AppendQuestionsToTopic(appendQuestionModel.PathToFile, map[string]string{question.(string): answer.(string)})
 			} else {
 				appendQuestionModel.QaForm.NextField()
 				appendQuestionModel.QuestionSet = true

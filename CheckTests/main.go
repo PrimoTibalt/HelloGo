@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	retriever "primotibalt/checkTests/questionsRetriever"
+	persistence "primotibalt/checkTests/topicPersistence"
 
 	"github.com/charmbracelet/huh"
 )
@@ -11,7 +11,6 @@ import (
 const (
 	paddingToLeft           = 4
 	defaultTaPlaceholder    = "Напиши ответ на вопрос"
-	delimeterQuestionAnswer = "/!/"
 	addNewQuestionToATopic  = "Добавить новый вопрос в топик"
 	testKnowledgeOnTheTopic = "Проверить знания по топику"
 )
@@ -21,7 +20,7 @@ var mainOptions map[string]func(map[string]string)
 func main() {
 	for {
 		var action string
-		topics := retriever.RetrieveTopicToPathMap()
+		topics := persistence.RetrieveTopicToPathMap()
 		options := make([]huh.Option[string], len(mainOptions))
 		idx := 0
 		for key := range mainOptions {

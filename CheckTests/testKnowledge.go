@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	retriever "primotibalt/checkTests/questionsRetriever"
+	persistence "primotibalt/checkTests/topicPersistence"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -38,13 +38,13 @@ func ChooseTopicForTest(topics map[string]string) (selectedPaths []string) {
 func RunKnowledgeTest(selectedPaths []string) {
 	questions := []Question{}
 	for _, path := range selectedPaths {
-		qaPairs := retriever.TopicQuestions(path)
+		qaPairs := persistence.TopicQuestions(path)
 		for _, pair := range qaPairs {
-			if !strings.Contains(pair, delimeterQuestionAnswer) {
+			if !strings.Contains(pair, persistence.DelimeterQuestionAnswer) {
 				continue
 			}
 
-			qa := strings.Split(pair, delimeterQuestionAnswer)
+			qa := strings.Split(pair, persistence.DelimeterQuestionAnswer)
 			question := qa[0]
 			answer := qa[1]
 			questions = append(questions, Question{answer, question})
