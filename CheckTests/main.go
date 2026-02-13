@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	persistence "primotibalt/checkTests/topicPersistence"
@@ -13,6 +14,7 @@ const (
 	defaultTaPlaceholder    = "Напиши ответ на вопрос"
 	addNewQuestionToATopic  = "Добавить новый вопрос в топик"
 	testKnowledgeOnTheTopic = "Проверить знания по топику"
+	addNewTopic             = "Добавить новый топик"
 )
 
 var mainOptions map[string]func(map[string]string)
@@ -43,7 +45,11 @@ func main() {
 }
 
 func testKnowledgeOnTheTopicFunc(topics map[string]string) {
-	selectedPaths := ChooseTopicForTest(topics)
+	selectedPaths := ChooseTopicsForTest(topics)
+	if len(selectedPaths) == 0 {
+		fmt.Println("Вы не выбрали ничего.")
+		return
+	}
 	RunKnowledgeTest(selectedPaths)
 }
 
@@ -52,9 +58,14 @@ func addNewQuestionToTopicFunc(topics map[string]string) {
 	RunTopicQuestionAppend(selectedPath)
 }
 
+func addNewTopicFunc(topics map[string]string) {
+	AddNewTopic(topics)
+}
+
 func init() {
 	mainOptions = map[string]func(map[string]string){
 		addNewQuestionToATopic:  addNewQuestionToTopicFunc,
 		testKnowledgeOnTheTopic: testKnowledgeOnTheTopicFunc,
+		addNewTopic:             addNewTopicFunc,
 	}
 }

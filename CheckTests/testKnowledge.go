@@ -14,7 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func ChooseTopicForTest(topics map[string]string) (selectedPaths []string) {
+func ChooseTopicsForTest(topics map[string]string) (selectedPaths []string) {
 	options := make([]huh.Option[string], len(topics))
 	var i int
 	for topic, path := range topics {
@@ -51,10 +51,17 @@ func RunKnowledgeTest(selectedPaths []string) {
 		}
 	}
 
-	program := tea.NewProgram(initializeModel(questions))
-	_, err := program.Run()
+	model, err := initializeModel(questions)
 	if err != nil {
-		panic(err)
+		fmt.Println(err.Error())
+		fmt.Scan()
+		return
+	} else {
+		program := tea.NewProgram(model)
+		_, err := program.Run()
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -82,7 +89,10 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.Questions) < 1 {
 				switch strings.Trim(m.textarea.Value(), " \n") {
 				case "r", "R", "reset":
-					m = initializeModel(slices.Concat(m.SuccessQuestions, m.FailedQuestions))
+					m, err := initializeModel(slices.Concat(m.SuccessQuestions, m.FailedQuestions))
+					if err != nil {
+						panic(err)
+					}
 					return m, tea.Batch(taCmd, vpCmd, tea.ClearScreen)
 				default:
 					return m, tea.Quit

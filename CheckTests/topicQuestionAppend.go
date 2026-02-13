@@ -86,7 +86,7 @@ func (appendQuestionModel AppendQuestion) Update(msg tea.Msg) (tea.Model, tea.Cm
 				question := appendQuestionModel.QaForm.GetFocusedField().GetValue()
 				appendQuestionModel.Questions = append(appendQuestionModel.Questions, Question{Text: question.(string), Answer: answer.(string)})
 				appendQuestionModel.QuestionSet = false
-				appendQuestionModel.QaForm = getQaForm()
+				appendQuestionModel.QaForm = getQaForm(appendQuestionModel.QaForm.Help().Width)
 				persistence.AppendQuestionsToTopic(appendQuestionModel.PathToFile, map[string]string{question.(string): answer.(string)})
 			} else {
 				appendQuestionModel.QaForm.NextField()
@@ -101,8 +101,8 @@ func (appendQuestionModel AppendQuestion) Update(msg tea.Msg) (tea.Model, tea.Cm
 	}
 	sb := strings.Builder{}
 	for _, item := range appendQuestionModel.Questions {
-		sb.WriteString("Q:" + item.Text + "\n")
-		sb.WriteString("A:" + item.Answer + "\n\n")
+		sb.WriteString("Q:" + item.PrintText(appendQuestionModel.LeftPanelVp.Width-2) + "\n")
+		sb.WriteString("A:" + item.PrintAnswer(appendQuestionModel.LeftPanelVp.Width-2) + "\n\n")
 	}
 	appendQuestionModel.LeftPanelVp.SetContent(sb.String())
 	appendQuestionModel.QaForm.Update(msg)
@@ -126,18 +126,18 @@ func initializeQuestionAppendModel(questions []Question) (appendQuestionModel Ap
 	appendQuestionModel = AppendQuestion{
 		LeftPanelVp: viewport.New(leftPanelWidth, height),
 		Questions:   questions,
-		QaForm:      getQaForm(),
+		QaForm:      getQaForm(rightPanelWidth),
 	}
 
 	return
 }
 
-func getQaForm() *huh.Form {
+func getQaForm(rightPanelWidth int) *huh.Form {
 	questionInput := huh.NewText().Description(questionInputDesc)
 	questionInput.Focus()
 	answerInput := huh.NewText().Description(answerInputDesc)
 	return huh.NewForm(huh.NewGroup(
 		questionInput,
 		answerInput,
-	))
+	)).WithWidth(rightPanelWidth)
 }

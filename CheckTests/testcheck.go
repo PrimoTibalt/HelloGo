@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -32,13 +33,28 @@ func print(text string, consoleWidth int) (splitText string) {
 	var builder strings.Builder
 	var counter int
 	var index int
+	var lastWhitespaceIdx int
 	runes := []rune(text)
 	for counter < len(runes) {
 		if index == consoleWidth {
-			index = index - consoleWidth
+			originalCounter := counter
+			counter = lastWhitespaceIdx
+
+			if counter == 0 || index == 0 {
+				counter = originalCounter - 1
+			}
+
+			index = 0
 			builder.WriteRune('\n')
 		}
-		builder.WriteRune(runes[counter])
+
+		if runes[counter] == ' ' || counter == len(runes)-1 {
+			if counter == len(runes)-1 {
+				counter++
+			}
+			builder.WriteString(string(runes[lastWhitespaceIdx:counter]))
+			lastWhitespaceIdx = counter
+		}
 		index++
 		counter++
 	}
@@ -113,7 +129,7 @@ func (m *TestCheck) IsInputAndAnswerEqual(distance int) (result bool) {
 	return
 }
 
-func initializeModel(questions []Question) (testCheckModel TestCheck) {
+func initializeModel(questions []Question) (testCheckModel TestCheck, err error) {
 	width, height, termSizeErr := term.GetSize(os.Stdout.Fd())
 	rightPanelWidth := width * 3 / 7
 	leftPanelWidth := width - rightPanelWidth
@@ -121,6 +137,10 @@ func initializeModel(questions []Question) (testCheckModel TestCheck) {
 		width = 80
 	}
 
+	if len(questions) == 0 {
+		err = errors.New("Выбранный файл не содержит вопросов. Попробуйте добавить новые.")
+		return TestCheck{}, err
+	}
 	currentQuestion := questions[rand.Intn(len(questions))]
 
 	taModel := textarea.New()
