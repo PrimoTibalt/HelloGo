@@ -17,12 +17,13 @@ type Note struct {
 type DateTime time.Time
 
 var (
-	TextArgumentIndex    = 2
-	DueDateArgumentIndex = 3
+	CommandNameArgumentIndex = 1
+	TextArgumentIndex        = 2
+	DueDateArgumentIndex     = 3
 )
 
 func main() {
-	switch strings.ToLower(os.Args[1]) {
+	switch strings.ToLower(os.Args[CommandNameArgumentIndex]) {
 	case "create":
 		createNote()
 	case "getall":
@@ -34,7 +35,7 @@ func main() {
 func getAllEntries() []Note {
 	source := "csv"
 	if len(os.Args) > 2 {
-		source = strings.ToLower(os.Args[2])
+		source = strings.ToLower(os.Args[TextArgumentIndex])
 	}
 
 	switch source {
