@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	persistence "primotibalt/checkTests/topicPersistence"
+	persistence "primotibalt/checkTests/topicpersistence"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,7 +16,7 @@ import (
 type AddNewTopicModel struct {
 	LeftSidePanel   viewport.Model
 	AddNewTopicForm *huh.Form
-	Topics          map[string]string
+	Topics          []string
 }
 
 func (m AddNewTopicModel) View() string {
@@ -42,15 +42,15 @@ func (m AddNewTopicModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			topicName := m.AddNewTopicForm.GetFocusedField().GetValue().(string)
 			if len(topicName) != 0 {
-				pathToTopic, err := persistence.AddNewTopic(topicName)
+				_, err := persistence.AddNewTopic(topicName)
 				if err != nil {
 					panic(err)
 				}
-				m.Topics[topicName] = pathToTopic
+				m.Topics = append(m.Topics, topicName)
 
 				var sb strings.Builder
-				for key := range m.Topics {
-					sb.WriteString(key + "\n\n")
+				for _, topic := range m.Topics {
+					sb.WriteString(topic + "\n\n")
 				}
 
 				m.LeftSidePanel.SetContent(sb.String())
@@ -64,14 +64,15 @@ func (m AddNewTopicModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(lspCmd, antfCmd)
 }
 
-func AddNewTopic(topics map[string]string) {
+func AddNewTopic(topics []string) {
 	_, err := tea.NewProgram(initializeAddNewTopicModel(topics)).Run()
 	if err != nil {
 		panic(err)
 	}
+	MoveCursorToTopLeft()
 }
 
-func initializeAddNewTopicModel(topics map[string]string) AddNewTopicModel {
+func initializeAddNewTopicModel(topics []string) AddNewTopicModel {
 	width, height, err := term.GetSize(os.Stdout.Fd())
 	if err != nil {
 		panic(err)
@@ -82,8 +83,8 @@ func initializeAddNewTopicModel(topics map[string]string) AddNewTopicModel {
 	addNewTopicTextInput := huh.NewText()
 	addNewTopicTextInput.Focus()
 	var sb strings.Builder
-	for key := range topics {
-		sb.WriteString(key + "\n\n")
+	for _, topic := range topics {
+		sb.WriteString(topic + "\n\n")
 	}
 	leftSidePanel := viewport.New(leftSidePanelWidth, height)
 	leftSidePanel.SetContent(sb.String())

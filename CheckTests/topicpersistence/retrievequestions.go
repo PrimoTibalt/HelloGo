@@ -12,7 +12,7 @@ const (
 	PathToQuestionsDir      = "/.local/share/primotibalt/Questions"
 )
 
-func RetrieveTopicToPathMap() (result map[string]string) {
+func RetrieveTopicToPathMap() (topics []string) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
@@ -29,16 +29,21 @@ func RetrieveTopicToPathMap() (result map[string]string) {
 		panic(getqInfoErr)
 	}
 
-	result = make(map[string]string, len(questionsDirEntries))
-	for _, dir := range questionsDirEntries {
-		result[dir.Name()] = path.Join(pathToTopics, dir.Name())
+	topics = make([]string, len(questionsDirEntries))
+	for ptr, dir := range questionsDirEntries {
+		topics[ptr] = dir.Name()
 	}
 
 	return
 }
 
-func TopicQuestions(path string) (qaPairs []string) {
-	fi, fiErr := os.ReadFile(path)
+func TopicQuestions(topic string) (qaPairs []string) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	pathToTopic := path.Join(homeDir, PathToQuestionsDir, topic)
+	fi, fiErr := os.ReadFile(pathToTopic)
 	if fiErr != nil {
 		panic(fiErr)
 	}

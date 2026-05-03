@@ -6,13 +6,13 @@ import (
 	"path"
 )
 
-func AddNewTopic(topicName string) (filepath string, err error) {
+func AddNewTopic(topic string) (filepath string, err error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
 
-	filepath = path.Join(homeDir, PathToQuestionsDir, topicName)
+	filepath = path.Join(homeDir, PathToQuestionsDir, topic)
 	file, err := os.Create(filepath)
 	if err != nil {
 		panic(err)

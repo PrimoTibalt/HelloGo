@@ -138,7 +138,7 @@ func initializeModel(questions []Question) (testCheckModel TestCheck, err error)
 	}
 
 	if len(questions) == 0 {
-		err = errors.New("Выбранный файл не содержит вопросов. Попробуйте добавить новые.")
+		err = errors.New("Выбранный файл не содержит вопросов попробуйте добавить новые")
 		return TestCheck{}, err
 	}
 	currentQuestion := questions[rand.Intn(len(questions))]

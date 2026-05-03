@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
-	persistence "primotibalt/checkTests/topicPersistence"
+	persistence "primotibalt/checkTests/topicpersistence"
 
 	"github.com/charmbracelet/huh"
 )
@@ -15,23 +17,30 @@ const (
 	addNewQuestionToATopic  = "Добавить новый вопрос в топик"
 	testKnowledgeOnTheTopic = "Проверить знания по топику"
 	addNewTopic             = "Добавить новый топик"
+	removeTopic             = "Удалить топик"
+	Padding                 = 1 // for some reason it just works and prevent first line of the select from disappearing
 )
 
-var mainOptions map[string]func(map[string]string)
+type mainOption struct {
+	name   string
+	action func([]string)
+}
+
+var mainOptions []mainOption
 
 func main() {
 	for {
-		var action string
+		var action int
 		topics := persistence.RetrieveTopicToPathMap()
-		options := make([]huh.Option[string], len(mainOptions))
-		idx := 0
-		for key := range mainOptions {
-			options[idx] = huh.NewOption(key, key)
-			idx++
+		options := make([]huh.Option[int], len(mainOptions))
+		for ptr, option := range mainOptions {
+			options[ptr] = huh.NewOption(option.name, ptr)
 		}
-		err := huh.NewForm(huh.NewGroup(huh.NewSelect[string]().
-			Options(options...).
-			Value(&action))).Run()
+		err := huh.NewForm(huh.NewGroup(
+			huh.NewSelect[int]().
+				Options(options...).
+				Title("Знания - сила. Что делать будем?").
+				Value(&action))).Run()
 		if err != nil {
 			if err != huh.ErrUserAborted {
 				panic(err)
@@ -40,32 +49,74 @@ func main() {
 			os.Exit(0)
 		}
 
-		mainOptions[action](topics)
+		mainOptions[action].action(topics)
 	}
 }
 
-func testKnowledgeOnTheTopicFunc(topics map[string]string) {
-	selectedPaths := ChooseTopicsForTest(topics)
-	if len(selectedPaths) == 0 {
+func testKnowledgeOnTheTopicFunc(topics []string) {
+	selectedTopics := ChooseTopicsForTest(topics)
+	if len(selectedTopics) == 0 {
 		fmt.Println("Вы не выбрали ничего.")
 		return
 	}
-	RunKnowledgeTest(selectedPaths)
+	RunKnowledgeTest(selectedTopics)
 }
 
-func addNewQuestionToTopicFunc(topics map[string]string) {
-	selectedPath := ChooseTopic(topics)
-	RunTopicQuestionAppend(selectedPath)
+func addNewQuestionToTopicFunc(topics []string) {
+	topicToQuestions := getAllQuestionsForAllTopics(topics)
+	selectedTopic := ChooseTopic(topics, topicToQuestions)
+	if selectedTopic == UserAborted {
+		return
+	}
+
+	RunTopicQuestionAppend(selectedTopic)
 }
 
-func addNewTopicFunc(topics map[string]string) {
+func addNewTopicFunc(topics []string) {
 	AddNewTopic(topics)
 }
 
+func removeTopicFunc(topics []string) {
+	topicToQuestions := getAllQuestionsForAllTopics(topics)
+	RemoveTopic(topics, topicToQuestions)
+}
+
 func init() {
-	mainOptions = map[string]func(map[string]string){
-		addNewQuestionToATopic:  addNewQuestionToTopicFunc,
-		testKnowledgeOnTheTopic: testKnowledgeOnTheTopicFunc,
-		addNewTopic:             addNewTopicFunc,
+	mainOptions = []mainOption{
+		{addNewQuestionToATopic, addNewQuestionToTopicFunc},
+		{testKnowledgeOnTheTopic, testKnowledgeOnTheTopicFunc},
+		{addNewTopic, addNewTopicFunc},
+		{removeTopic, removeTopicFunc},
 	}
+}
+
+func getAllQuestionsForAllTopics(topics []string) (topicToQuestions map[string][]string) {
+	topicToQuestions = make(map[string][]string)
+	for _, topic := range topics {
+		qaPairs := persistence.TopicQuestions(topic)
+		questions := make([]string, len(qaPairs))
+		for questionPtr, qaLine := range qaPairs {
+			questions[questionPtr] = strings.Split(qaLine, persistence.DelimeterQuestionAnswer)[0]
+		}
+
+		topicToQuestions[topic] = questions
+	}
+
+	return
+}
+
+func MoveCursorToTopLeft() {
+	command := exec.Command("clear")
+	command.Stdout = os.Stdout
+	command.Run()
+	fmt.Print("\033[H")
+}
+
+func GetQuestionsFromTopics(topic string, topicToQuestions map[string][]string) (questions string) {
+	var questionsLineSb strings.Builder
+	for _, question := range topicToQuestions[topic] {
+		questionsLineSb.WriteString(question + "\n")
+	}
+	questions = questionsLineSb.String()
+	return
 }

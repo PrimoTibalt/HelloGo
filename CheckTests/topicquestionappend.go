@@ -2,7 +2,7 @@ package main
 
 import (
 	"os"
-	persistence "primotibalt/checkTests/topicPersistence"
+	persistence "primotibalt/checkTests/topicpersistence"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -17,38 +17,55 @@ type AppendQuestion struct {
 	LeftPanelVp viewport.Model
 	QaForm      *huh.Form
 	QuestionSet bool
-	PathToFile  string
+	Topic       string
 }
 
 var (
 	questionInputDesc string = "Введите вопрос"
 	answerInputDesc   string = "Введите ответ на вопрос"
+	UserAborted       string = ""
 )
 
-func ChooseTopic(topics map[string]string) (selectedPath string) {
-	options := make([]huh.Option[string], len(topics))
-	var i int
-	for topic, path := range topics {
-		options[i] = huh.NewOption(topic, path)
-		i++
+func ChooseTopic(topics []string, topicToQuestions map[string][]string) (selectedTopic string) {
+	width, height, err := term.GetSize(os.Stdout.Fd())
+	if err != nil {
+		panic(err)
 	}
-	err := huh.NewForm(huh.NewGroup(huh.NewSelect[string]().
-		Title("Выбери топик для добавления вопросов:").
-		Options(options...).
-		Value(&selectedPath))).
+	options := make([]huh.Option[string], len(topics))
+	for ptr, topic := range topics {
+		options[ptr] = huh.NewOption(topic, topic)
+	}
+	MoveCursorToTopLeft()
+
+	err = huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Выбери топик для добавления вопросов:").
+				Options(options...).
+				Value(&selectedTopic),
+			huh.NewNote().
+				DescriptionFunc(func() string {
+					return GetQuestionsFromTopics(selectedTopic, topicToQuestions)
+				}, &selectedTopic).
+				Title("Questions"),
+		),
+	).WithWidth(width - 5).WithHeight(height - Padding).
 		Run()
 	if err != nil {
-		if err == huh.ErrUserAborted {
-			os.Exit(0)
+		if err != huh.ErrUserAborted {
+			panic(err)
+		} else {
+			MoveCursorToTopLeft()
+			return UserAborted
 		}
 	}
 
 	return
 }
 
-func RunTopicQuestionAppend(selectedPath string) {
+func RunTopicQuestionAppend(selectedTopic string) {
 	questions := []Question{}
-	qaPairs := persistence.TopicQuestions(selectedPath)
+	qaPairs := persistence.TopicQuestions(selectedTopic)
 	for _, pair := range qaPairs {
 		if !strings.Contains(pair, persistence.DelimeterQuestionAnswer) {
 			continue
@@ -61,7 +78,7 @@ func RunTopicQuestionAppend(selectedPath string) {
 	}
 
 	model := initializeQuestionAppendModel(questions)
-	model.PathToFile = selectedPath
+	model.Topic = selectedTopic
 	program := tea.NewProgram(model)
 	_, err := program.Run()
 	if err != nil {
@@ -87,7 +104,7 @@ func (appendQuestionModel AppendQuestion) Update(msg tea.Msg) (tea.Model, tea.Cm
 				appendQuestionModel.Questions = append(appendQuestionModel.Questions, Question{Text: question.(string), Answer: answer.(string)})
 				appendQuestionModel.QuestionSet = false
 				appendQuestionModel.QaForm = getQaForm(appendQuestionModel.QaForm.Help().Width)
-				persistence.AppendQuestionsToTopic(appendQuestionModel.PathToFile, map[string]string{question.(string): answer.(string)})
+				persistence.AppendQuestionsToTopic(appendQuestionModel.Topic, map[string]string{question.(string): answer.(string)})
 			} else {
 				appendQuestionModel.QaForm.NextField()
 				appendQuestionModel.QuestionSet = true

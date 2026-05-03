@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
-	persistence "primotibalt/checkTests/topicPersistence"
+	persistence "primotibalt/checkTests/topicpersistence"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,31 +13,31 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func ChooseTopicsForTest(topics map[string]string) (selectedPaths []string) {
+func ChooseTopicsForTest(topics []string) (selectedTopics []string) {
 	options := make([]huh.Option[string], len(topics))
-	var i int
-	for topic, path := range topics {
-		options[i] = huh.NewOption(topic, path)
-		i++
+	for ptr, topic := range topics {
+		options[ptr] = huh.NewOption(topic, topic)
 	}
 	err := huh.NewForm(huh.NewGroup(huh.NewMultiSelect[string]().
 		Title("Выбери топик(и) для теста:").
 		Options(options...).
-		Value(&selectedPaths))).
+		Value(&selectedTopics))).
 		Run()
 	if err != nil {
-		if err == huh.ErrUserAborted {
-			os.Exit(0)
+		if err != huh.ErrUserAborted {
+			panic(err)
+		} else {
+			return []string{}
 		}
 	}
 
 	return
 }
 
-func RunKnowledgeTest(selectedPaths []string) {
+func RunKnowledgeTest(selectedTopics []string) {
 	questions := []Question{}
-	for _, path := range selectedPaths {
-		qaPairs := persistence.TopicQuestions(path)
+	for _, topic := range selectedTopics {
+		qaPairs := persistence.TopicQuestions(topic)
 		for _, pair := range qaPairs {
 			if !strings.Contains(pair, persistence.DelimeterQuestionAnswer) {
 				continue
