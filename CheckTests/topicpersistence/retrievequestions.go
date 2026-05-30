@@ -10,6 +10,7 @@ import (
 const (
 	DelimeterQuestionAnswer = "/!/"
 	PathToQuestionsDir      = "/.local/share/primotibalt/Questions"
+	directoryPermissions    = 0o755
 )
 
 func RetrieveTopicToPathMap() (topics []string) {
@@ -19,7 +20,7 @@ func RetrieveTopicToPathMap() (topics []string) {
 	}
 	pathToTopics := path.Join(homeDir, PathToQuestionsDir)
 	if _, err := os.Stat(pathToTopics); err != nil {
-		if err = os.Mkdir(pathToTopics, 0o751); err != nil {
+		if err = os.MkdirAll(pathToTopics, directoryPermissions); err != nil {
 			panic(err)
 		}
 	}
