@@ -8,6 +8,7 @@ import (
 
 	persistence "primotibalt/checkTests/topicpersistence"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 )
 
@@ -18,6 +19,7 @@ const (
 	testKnowledgeOnTheTopic = "Проверить знания по топику"
 	addNewTopic             = "Добавить новый топик"
 	removeTopic             = "Удалить топик"
+	editTopic               = "Редактировать топик"
 	Padding                 = 1 // for some reason it just works and prevent first line of the select from disappearing
 )
 
@@ -27,6 +29,21 @@ type mainOption struct {
 }
 
 var mainOptions []mainOption
+
+type QaPair struct {
+	Question string
+	Answer   string
+}
+
+func init() {
+	mainOptions = []mainOption{
+		{addNewQuestionToATopic, addNewQuestionToTopicFunc},
+		{testKnowledgeOnTheTopic, testKnowledgeOnTheTopicFunc},
+		{addNewTopic, addNewTopicFunc},
+		{removeTopic, removeTopicFunc},
+		{editTopic, editTopicFunc},
+	}
+}
 
 func main() {
 	for {
@@ -40,7 +57,8 @@ func main() {
 			huh.NewSelect[int]().
 				Options(options...).
 				Title("Знания - сила. Что делать будем?").
-				Value(&action))).Run()
+				Value(&action))).
+			WithProgramOptions(tea.WithAltScreen()).Run()
 		if err != nil {
 			if err != huh.ErrUserAborted {
 				panic(err)
@@ -63,8 +81,8 @@ func testKnowledgeOnTheTopicFunc(topics []string) {
 }
 
 func addNewQuestionToTopicFunc(topics []string) {
-	topicToQuestions := getAllQuestionsForAllTopics(topics)
-	selectedTopic := ChooseTopic(topics, topicToQuestions)
+	topicToQa := getAllQuestionsForAllTopics(topics)
+	selectedTopic := ChooseTopic(topics, topicToQa)
 	if selectedTopic == UserAborted {
 		return
 	}
@@ -77,21 +95,30 @@ func addNewTopicFunc(topics []string) {
 }
 
 func removeTopicFunc(topics []string) {
-	topicToQuestions := getAllQuestionsForAllTopics(topics)
-	RemoveTopic(topics, topicToQuestions)
+	topicToQa := getAllQuestionsForAllTopics(topics)
+	RemoveTopic(topics, topicToQa)
 }
 
-func init() {
-	mainOptions = []mainOption{
-		{addNewQuestionToATopic, addNewQuestionToTopicFunc},
-		{testKnowledgeOnTheTopic, testKnowledgeOnTheTopicFunc},
-		{addNewTopic, addNewTopicFunc},
-		{removeTopic, removeTopicFunc},
+func editTopicFunc(topics []string) {
+	topicToQA := make(map[string][]QaPair)
+	for _, topic := range topics {
+		pairs := []QaPair{}
+		for _, qaLine := range persistence.TopicQuestions(topic) {
+			qa := strings.Split(qaLine, persistence.DelimeterQuestionAnswer)
+			if len(qa) < 2 {
+				continue
+			}
+			pairs = append(pairs, QaPair{qa[0], qa[1]})
+		}
+
+		topicToQA[topic] = pairs
 	}
+
+	EditTopic(topicToQA)
 }
 
-func getAllQuestionsForAllTopics(topics []string) (topicToQuestions map[string][]string) {
-	topicToQuestions = make(map[string][]string)
+func getAllQuestionsForAllTopics(topics []string) (topicToQa map[string][]string) {
+	topicToQa = make(map[string][]string)
 	for _, topic := range topics {
 		qaPairs := persistence.TopicQuestions(topic)
 		questions := make([]string, len(qaPairs))
@@ -99,7 +126,7 @@ func getAllQuestionsForAllTopics(topics []string) (topicToQuestions map[string][
 			questions[questionPtr] = strings.Split(qaLine, persistence.DelimeterQuestionAnswer)[0]
 		}
 
-		topicToQuestions[topic] = questions
+		topicToQa[topic] = questions
 	}
 
 	return
@@ -112,9 +139,9 @@ func MoveCursorToTopLeft() {
 	fmt.Print("\033[H")
 }
 
-func GetQuestionsFromTopics(topic string, topicToQuestions map[string][]string) (questions string) {
+func GetQuestionsFromTopics(topic string, topicToQa map[string][]string) (questions string) {
 	var questionsLineSb strings.Builder
-	for _, question := range topicToQuestions[topic] {
+	for _, question := range topicToQa[topic] {
 		questionsLineSb.WriteString(question + "\n")
 	}
 	questions = questionsLineSb.String()

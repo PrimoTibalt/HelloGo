@@ -40,7 +40,7 @@ func (m RemoveTopicModel) View() string {
 	return m.RemoveTopicForm.View()
 }
 
-func RemoveTopic(topics []string, topicToQuestions map[string][]string) {
+func RemoveTopic(topics []string, topicToQa map[string][]string) {
 	width, height, err := term.GetSize(os.Stdout.Fd())
 	if err != nil {
 		panic(err)
@@ -56,7 +56,7 @@ func RemoveTopic(topics []string, topicToQuestions map[string][]string) {
 		topicsOptions...).
 		Value(&topicToRemove)
 	questionsPanel := huh.NewNote().DescriptionFunc(func() string {
-		return GetQuestionsFromTopics(topicToRemove, topicToQuestions)
+		return GetQuestionsFromTopics(topicToRemove, topicToQa)
 	}, &topicToRemove)
 
 	selectTopicGroup := huh.NewGroup(selectTopicPanel, questionsPanel).WithWidth(width).WithHeight(height)
@@ -79,7 +79,7 @@ func RemoveTopic(topics []string, topicToQuestions map[string][]string) {
 		var userConfirmed bool
 		huh.NewConfirm().Value(&userConfirmed).
 			Affirmative("Удалить").Negative("Отмена").
-			Description(GetQuestionsFromTopics(topicToRemove, topicToQuestions)).
+			Description(GetQuestionsFromTopics(topicToRemove, topicToQa)).
 			Title("Вы уверены что хотите удалить топик \"" + topicToRemove + "\"?").
 			Run()
 

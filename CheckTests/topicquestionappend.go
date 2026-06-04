@@ -26,7 +26,7 @@ var (
 	UserAborted       string = ""
 )
 
-func ChooseTopic(topics []string, topicToQuestions map[string][]string) (selectedTopic string) {
+func ChooseTopic(topics []string, topicToQa map[string][]string) (selectedTopic string) {
 	width, height, err := term.GetSize(os.Stdout.Fd())
 	if err != nil {
 		panic(err)
@@ -45,7 +45,7 @@ func ChooseTopic(topics []string, topicToQuestions map[string][]string) (selecte
 				Value(&selectedTopic),
 			huh.NewNote().
 				DescriptionFunc(func() string {
-					return GetQuestionsFromTopics(selectedTopic, topicToQuestions)
+					return GetQuestionsFromTopics(selectedTopic, topicToQa)
 				}, &selectedTopic).
 				Title("Questions"),
 		),
@@ -77,8 +77,7 @@ func RunTopicQuestionAppend(selectedTopic string) {
 		questions = append(questions, Question{answer, question})
 	}
 
-	model := initializeQuestionAppendModel(questions)
-	model.Topic = selectedTopic
+	model := initializeQuestionAppendModel(questions, selectedTopic)
 	program := tea.NewProgram(model)
 	_, err := program.Run()
 	if err != nil {
@@ -132,7 +131,7 @@ func (appendQuestionModel AppendQuestion) Init() tea.Cmd {
 	return tea.ClearScreen
 }
 
-func initializeQuestionAppendModel(questions []Question) (appendQuestionModel AppendQuestion) {
+func initializeQuestionAppendModel(questions []Question, selectedTopic string) (appendQuestionModel AppendQuestion) {
 	width, height, termSizeErr := term.GetSize(os.Stdout.Fd())
 	rightPanelWidth := width * 3 / 7
 	leftPanelWidth := width - rightPanelWidth
@@ -144,6 +143,7 @@ func initializeQuestionAppendModel(questions []Question) (appendQuestionModel Ap
 		LeftPanelVp: viewport.New(leftPanelWidth, height),
 		Questions:   questions,
 		QaForm:      getQaForm(rightPanelWidth),
+		Topic:       selectedTopic,
 	}
 
 	return
