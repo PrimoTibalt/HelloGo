@@ -77,16 +77,17 @@ func RemoveTopic(topics []persistence.TopicName, topicToQa map[persistence.Topic
 
 	if len(topicToRemove) > 0 {
 		var userConfirmed bool
+
 		huh.NewConfirm().Value(&userConfirmed).
 			Affirmative("Удалить").Negative("Отмена").
 			Description(GetQuestionsFromTopics(topicToRemove, topicToQa)).
 			Title("Вы уверены что хотите удалить топик \"" + string(topicToRemove) + "\"?").
+			WithTheme(MakeThemeCenterInnerElement(huh.ThemeCharm())).
 			Run()
 
+		MoveCursorToTopLeft()
 		if userConfirmed {
 			persistence.RemoveTopic(topicToRemove)
 		}
-
-		MoveCursorToTopLeft()
 	}
 }

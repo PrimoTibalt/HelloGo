@@ -28,12 +28,10 @@ type EditTopicModel struct {
 type EditingPart string
 
 var (
-	TopicPart     EditingPart    = "Topic"
-	QuestionPart  EditingPart    = "Question"
-	AnswerPart    EditingPart    = "Answer"
-	selectedValue string         = ""
-	border                       = lipgloss.BlockBorder()
-	borderStyle   lipgloss.Style = lipgloss.NewStyle().Border(border, true)
+	TopicPart     EditingPart = "Topic"
+	QuestionPart  EditingPart = "Question"
+	AnswerPart    EditingPart = "Answer"
+	selectedValue string      = ""
 )
 
 func (m EditTopicModel) View() string {
@@ -290,15 +288,10 @@ func getTitleForSelectByState(editingPart EditingPart) string {
 }
 
 func displayErrorNotification(errorMsg string) {
-	theme := huh.ThemeBase()
-	theme.Focused.Base = lipgloss.NewStyle().
-		Border(border, true).
-		AlignHorizontal(lipgloss.Center).
-		AlignVertical(lipgloss.Center)
-	theme.Focused.Card = theme.Focused.Base
-	theme.Focused.Card = theme.Focused.Card.Foreground(lipgloss.Color("#ff5555"))
 	huh.NewForm(huh.NewGroup(
-		huh.NewNote().Title(errorMsg).WithTheme(theme),
+		huh.NewNote().
+			Title(errorMsg).
+			WithTheme(MakeThemeCenterInnerElement(huh.ThemeBase())),
 	)).
 		WithProgramOptions(tea.WithAltScreen()).
 		Run()

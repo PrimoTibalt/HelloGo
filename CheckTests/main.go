@@ -10,6 +10,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/term"
 )
 
 const (
@@ -28,7 +30,11 @@ type mainOption struct {
 	action func([]persistence.TopicName)
 }
 
-var mainOptions []mainOption
+var (
+	mainOptions []mainOption
+	border                     = lipgloss.BlockBorder()
+	borderStyle lipgloss.Style = lipgloss.NewStyle().Border(border, true)
+)
 
 type QaPair struct {
 	Question string
@@ -137,6 +143,21 @@ func MoveCursorToTopLeft() {
 	command.Stdout = os.Stdout
 	command.Run()
 	fmt.Print("\033[H")
+}
+
+func MakeThemeCenterInnerElement(theme *huh.Theme) *huh.Theme {
+	w, _, err := term.GetSize(os.Stdout.Fd())
+	if err != nil {
+		panic(err)
+	}
+	theme.Focused.Base = lipgloss.NewStyle().
+		AlignHorizontal(lipgloss.Center).
+		Border(border, true).
+		AlignVertical(lipgloss.Center).
+		MaxWidth(w - border.GetLeftSize())
+	theme.Focused.Card = theme.Focused.Base
+	theme.Focused.Card = theme.Focused.Card.Foreground(lipgloss.Color("#ff5555"))
+	return theme
 }
 
 func GetQuestionsFromTopics(topic persistence.TopicName, topicToQa map[persistence.TopicName][]string) (questions string) {
