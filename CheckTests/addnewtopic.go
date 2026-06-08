@@ -40,7 +40,7 @@ func (m AddNewTopicModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			topicName := m.AddNewTopicForm.GetFocusedField().GetValue().(persistence.TopicName)
+			topicName := persistence.TopicName(m.AddNewTopicForm.GetFocusedField().GetValue().(string))
 			if len(topicName) != 0 {
 				_, err := persistence.AddNewTopic(topicName)
 				if err != nil {

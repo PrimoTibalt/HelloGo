@@ -133,11 +133,11 @@ func (m *EditTopicModel) processInputInEditingMode(msg tea.Msg) {
 	}
 }
 
-func (m *EditTopicModel) updateTopicContent(updatedValue string) {
+func (m *EditTopicModel) updateTopicContent(updatedTopicName string) {
 	initialTopic := persistence.TopicName(m.Original)
 	content := m.Content[initialTopic]
 	delete(m.Content, initialTopic)
-	m.Content[persistence.TopicName(updatedValue)] = content
+	m.Content[persistence.TopicName(updatedTopicName)] = content
 
 	topics := []persistence.TopicName{}
 	for topic := range m.Content {
@@ -146,16 +146,16 @@ func (m *EditTopicModel) updateTopicContent(updatedValue string) {
 	persistence.UpdateTopicNames(topics)
 }
 
-func (m *EditTopicModel) updateQuestionContent(updatedValue string) {
+func (m *EditTopicModel) updateQuestionContent(updatedQuestion string) {
 	initialQuestion := m.Original
 	content := m.Content[m.SelectedTopic][initialQuestion]
 	delete(m.Content[m.SelectedTopic], initialQuestion)
-	m.Content[m.SelectedTopic][updatedValue] = content
+	m.Content[m.SelectedTopic][updatedQuestion] = content
 	persistence.UpdateTopicFile(m.SelectedTopic, m.Content[m.SelectedTopic])
 }
 
-func (m *EditTopicModel) updateAnswerContent(updatedValue string) {
-	m.Content[m.SelectedTopic][m.SelectedQuestion] = updatedValue
+func (m *EditTopicModel) updateAnswerContent(updatedAnswer string) {
+	m.Content[m.SelectedTopic][m.SelectedQuestion] = updatedAnswer
 	persistence.UpdateTopicFile(m.SelectedTopic, m.Content[m.SelectedTopic])
 }
 
