@@ -27,10 +27,12 @@ type EditTopicModel struct {
 type EditingPart string
 
 var (
-	TopicPart     EditingPart = "Topic"
-	QuestionPart  EditingPart = "Question"
-	AnswerPart    EditingPart = "Answer"
-	selectedValue string      = ""
+	TopicPart     EditingPart    = "Topic"
+	QuestionPart  EditingPart    = "Question"
+	AnswerPart    EditingPart    = "Answer"
+	selectedValue string         = ""
+	border                       = lipgloss.BlockBorder()
+	borderStyle   lipgloss.Style = lipgloss.NewStyle().Border(border, true)
 )
 
 func (m EditTopicModel) View() string {
@@ -39,21 +41,30 @@ func (m EditTopicModel) View() string {
 		os.Exit(1)
 	}
 	if m.IsEditing {
-		border := lipgloss.BlockBorder()
+		inputTheme := huh.ThemeBase()
+		inputTheme.Focused.Base = lipgloss.NewStyle().
+			PaddingLeft(Padding).
+			PaddingRight(Padding).
+			AlignHorizontal(lipgloss.Center).AlignVertical(lipgloss.Center).
+			MaxWidth(w - border.GetLeftSize() - Padding).
+			MaxHeight(h - border.GetTopSize() - Padding)
+		inputTheme.Focused.Card = inputTheme.Focused.Base
 		content := lipgloss.JoinVertical(
 			lipgloss.Center,
-			lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#7571F9")).
-				Render(m.Original),
+			renderOriginal(m.Original, w-border.GetLeftSize()-border.GetRightSize()-Padding),
 			m.Input.
+				WithTheme(inputTheme).
 				WithWidth(w-border.GetLeftSize()-border.GetRightSize()-Padding).
-				WithHeight(h-border.GetTopSize()-border.GetBottomSize()-Padding).
+				WithHeight(h-border.GetTopSize()-border.GetBottomSize()-4*Padding).
 				View())
-		return lipgloss.NewStyle().Border(border, true).SetString(content).String()
+		return borderStyle.Render(content)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Center, m.Select.WithWidth(w-Padding).View())
+	return lipgloss.JoinVertical(
+		lipgloss.Center,
+		m.Select.WithWidth(w-Padding).
+			WithHeight(h-Padding).
+			View())
 }
 
 func (m EditTopicModel) Init() tea.Cmd {
@@ -115,23 +126,25 @@ func (m *EditTopicModel) processInputInEditingMode(msg tea.Msg) {
 			}
 			return
 		}
-		input, _ := m.Input.Update(msg)
-		inputText, ok := input.(*huh.Text)
-		if ok {
-			m.Input = inputText
-		}
-	default:
-		input, _ := m.Input.Update(msg)
-		inputText, ok := input.(*huh.Text)
-		if ok {
-			m.Input = inputText
-		}
+	}
+	input, _ := m.Input.Update(msg)
+	inputText, ok := input.(*huh.Text)
+	if ok {
+		m.Input = inputText
 	}
 }
 
 func (m *EditTopicModel) applyChanges() {
 	updatedValue := strings.Trim(selectedValue, "\n\t ")
 	if updatedValue == "" || strings.Contains(selectedValue, "\n") {
+		var errorMsg string
+		switch {
+		case updatedValue == "":
+			errorMsg = "Новое значение не содержит никаких символов, так нельзя"
+		case strings.Contains(selectedValue, "\n"):
+			errorMsg = "Нельзя переходить на новую строку в тексте нового значения"
+		}
+		displayErrorNotification(errorMsg)
 		return
 	}
 	switch m.EditingPart {
@@ -273,4 +286,29 @@ func getTitleForSelectByState(editingPart EditingPart) string {
 	default:
 		panic(errors.New("непредвиденное состояние селекта"))
 	}
+}
+
+func displayErrorNotification(errorMsg string) {
+	theme := huh.ThemeBase()
+	theme.Focused.Base = lipgloss.NewStyle().
+		Border(border, true).
+		AlignHorizontal(lipgloss.Center).
+		AlignVertical(lipgloss.Center)
+	theme.Focused.Card = theme.Focused.Base
+	theme.Focused.Card = theme.Focused.Card.Foreground(lipgloss.Color("#ff5555"))
+	huh.NewForm(huh.NewGroup(
+		huh.NewNote().Title(errorMsg).WithTheme(theme),
+	)).
+		WithProgramOptions(tea.WithAltScreen()).
+		Run()
+}
+
+func renderOriginal(original string, maxWidth int) string {
+	return lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#7571F9")).
+		PaddingTop(1).
+		Inline(true).
+		MaxWidth(maxWidth).
+		Render(original)
 }
