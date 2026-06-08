@@ -133,6 +133,36 @@ func (m *EditTopicModel) processInputInEditingMode(msg tea.Msg) {
 	}
 }
 
+func (m *EditTopicModel) updateTopicContent(updatedValue string) {
+	initialTopic := persistence.TopicName(m.Original)
+	content := m.Content[initialTopic]
+	delete(m.Content, initialTopic)
+	m.Content[persistence.TopicName(updatedValue)] = content
+
+	topics := []persistence.TopicName{}
+	for topic := range m.Content {
+		topics = append(topics, topic)
+	}
+	persistence.UpdateTopicNames(topics)
+}
+
+func (m *EditTopicModel) updateQuestionContent(updatedValue string) {
+	initialQuestion := m.Original
+	content := m.Content[m.SelectedTopic][initialQuestion]
+	delete(m.Content[m.SelectedTopic], initialQuestion)
+	m.Content[m.SelectedTopic][updatedValue] = content
+}
+
+func (m *EditTopicModel) noChangesInTopicOrDuplicateName(updatedValue string) bool {
+	_, exists := m.Content[persistence.TopicName(updatedValue)]
+	return exists
+}
+
+func (m *EditTopicModel) noChangesInQuestionOrDuplicateText(updatedValue string) bool {
+	_, exists := m.Content[m.SelectedTopic][updatedValue]
+	return exists
+}
+
 func (m *EditTopicModel) applyChanges() {
 	updatedValue := strings.Trim(selectedValue, "\n\t ")
 	if updatedValue == "" || strings.Contains(selectedValue, "\n") {
@@ -148,21 +178,15 @@ func (m *EditTopicModel) applyChanges() {
 	}
 	switch m.EditingPart {
 	case TopicPart:
-		if _, ok := m.Content[persistence.TopicName(updatedValue)]; ok {
+		if m.noChangesInTopicOrDuplicateName(updatedValue) {
 			return
 		}
-		initialTopic := persistence.TopicName(m.Original)
-		content := m.Content[initialTopic]
-		delete(m.Content, initialTopic)
-		m.Content[persistence.TopicName(updatedValue)] = content
+		m.updateTopicContent(updatedValue)
 	case QuestionPart:
-		if _, ok := m.Content[persistence.TopicName(updatedValue)]; ok {
+		if m.noChangesInQuestionOrDuplicateText(updatedValue) {
 			return
 		}
-		initialQuestion := m.Original
-		content := m.Content[m.SelectedTopic][initialQuestion]
-		delete(m.Content[m.SelectedTopic], initialQuestion)
-		m.Content[m.SelectedTopic][updatedValue] = content
+		m.updateQuestionContent(updatedValue)
 	case AnswerPart:
 		m.Content[m.SelectedTopic][m.SelectedQuestion] = updatedValue
 	}
