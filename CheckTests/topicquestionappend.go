@@ -17,7 +17,7 @@ type AppendQuestion struct {
 	LeftPanelVp viewport.Model
 	QaForm      *huh.Form
 	QuestionSet bool
-	Topic       string
+	Topic       persistence.TopicName
 }
 
 var (
@@ -26,20 +26,20 @@ var (
 	UserAborted       string = ""
 )
 
-func ChooseTopic(topics []string, topicToQa map[string][]string) (selectedTopic string) {
+func ChooseTopic(topics []persistence.TopicName, topicToQa map[persistence.TopicName][]string) (selectedTopic persistence.TopicName, ok bool) {
 	width, height, err := term.GetSize(os.Stdout.Fd())
 	if err != nil {
 		panic(err)
 	}
-	options := make([]huh.Option[string], len(topics))
+	options := make([]huh.Option[persistence.TopicName], len(topics))
 	for ptr, topic := range topics {
-		options[ptr] = huh.NewOption(topic, topic)
+		options[ptr] = huh.NewOption(string(topic), topic)
 	}
 	MoveCursorToTopLeft()
 
 	err = huh.NewForm(
 		huh.NewGroup(
-			huh.NewSelect[string]().
+			huh.NewSelect[persistence.TopicName]().
 				Title("Выбери топик для добавления вопросов:").
 				Options(options...).
 				Value(&selectedTopic),
@@ -56,14 +56,14 @@ func ChooseTopic(topics []string, topicToQa map[string][]string) (selectedTopic 
 			panic(err)
 		} else {
 			MoveCursorToTopLeft()
-			return UserAborted
+			return persistence.TopicName(UserAborted), false
 		}
 	}
 
-	return
+	return selectedTopic, true
 }
 
-func RunTopicQuestionAppend(selectedTopic string) {
+func RunTopicQuestionAppend(selectedTopic persistence.TopicName) {
 	questions := []Question{}
 	qaPairs := persistence.TopicQuestions(selectedTopic)
 	for _, pair := range qaPairs {
@@ -131,7 +131,7 @@ func (appendQuestionModel AppendQuestion) Init() tea.Cmd {
 	return tea.ClearScreen
 }
 
-func initializeQuestionAppendModel(questions []Question, selectedTopic string) (appendQuestionModel AppendQuestion) {
+func initializeQuestionAppendModel(questions []Question, selectedTopic persistence.TopicName) (appendQuestionModel AppendQuestion) {
 	width, height, termSizeErr := term.GetSize(os.Stdout.Fd())
 	rightPanelWidth := width * 3 / 7
 	leftPanelWidth := width - rightPanelWidth

@@ -5,13 +5,13 @@ import (
 	"path"
 )
 
-func AppendQuestionsToTopic(topicName string, questionsToAdd map[string]string) {
+func AppendQuestionsToTopic(topicName TopicName, questionsToAdd map[string]string) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
 
-	filepath := path.Join(homeDir, PathToQuestionsDir, topicName)
+	filepath := path.Join(homeDir, PathToQuestionsDir, string(topicName))
 	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		panic(err)

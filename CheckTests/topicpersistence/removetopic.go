@@ -6,13 +6,13 @@ import (
 	"path"
 )
 
-func RemoveTopic(topicName string) (ok bool, err error) {
+func RemoveTopic(topicName TopicName) (ok bool, err error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
 
-	filepath := path.Join(homeDir, PathToQuestionsDir, topicName)
+	filepath := path.Join(homeDir, PathToQuestionsDir, string(topicName))
 	err = os.Remove(filepath)
 	if err != nil {
 		return false, err

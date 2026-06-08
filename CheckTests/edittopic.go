@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	persistence "primotibalt/checkTests/topicpersistence"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,8 +20,8 @@ type EditTopicModel struct {
 	EditingPart EditingPart
 	IsEditing   bool
 
-	Content          map[string]map[string]string
-	SelectedTopic    string
+	Content          map[persistence.TopicName]map[string]string
+	SelectedTopic    persistence.TopicName
 	SelectedQuestion string
 }
 
@@ -149,15 +150,15 @@ func (m *EditTopicModel) applyChanges() {
 	}
 	switch m.EditingPart {
 	case TopicPart:
-		if _, ok := m.Content[updatedValue]; ok {
+		if _, ok := m.Content[persistence.TopicName(updatedValue)]; ok {
 			return
 		}
-		initialTopic := m.Original
+		initialTopic := persistence.TopicName(m.Original)
 		content := m.Content[initialTopic]
 		delete(m.Content, initialTopic)
-		m.Content[updatedValue] = content
+		m.Content[persistence.TopicName(updatedValue)] = content
 	case QuestionPart:
-		if _, ok := m.Content[updatedValue]; ok {
+		if _, ok := m.Content[persistence.TopicName(updatedValue)]; ok {
 			return
 		}
 		initialQuestion := m.Original
@@ -176,7 +177,7 @@ func (m *EditTopicModel) updateSelectWithOptions() {
 			switch m.EditingPart {
 			case TopicPart:
 				for topic := range m.Content {
-					options = append(options, huh.NewOption(topic, topic))
+					options = append(options, huh.NewOption(string(topic), string(topic)))
 				}
 			case QuestionPart:
 				for question := range m.Content[m.SelectedTopic] {
@@ -201,11 +202,11 @@ func (m *EditTopicModel) updateInputWithNewValue() {
 	var note string
 	switch m.EditingPart {
 	case TopicPart:
-		m.SelectedTopic = selectedValue
-		note = m.SelectedTopic
+		m.SelectedTopic = persistence.TopicName(selectedValue)
+		note = selectedValue
 	case QuestionPart:
 		m.SelectedQuestion = selectedValue
-		note = m.SelectedQuestion
+		note = selectedValue
 	case AnswerPart:
 		note = m.Content[m.SelectedTopic][m.SelectedQuestion]
 	}
@@ -232,7 +233,7 @@ func (m *EditTopicModel) calculateNextState() {
 	switch m.EditingPart {
 	case TopicPart:
 		m.EditingPart = QuestionPart
-		m.SelectedTopic = selectedValue
+		m.SelectedTopic = persistence.TopicName(selectedValue)
 	case QuestionPart:
 		m.EditingPart = AnswerPart
 		m.SelectedQuestion = selectedValue
@@ -251,7 +252,7 @@ func (m *EditTopicModel) calculateNextState() {
 	}
 }
 
-func EditTopic(topicToQa map[string][]QaPair) {
+func EditTopic(topicToQa map[persistence.TopicName][]QaPair) {
 	model := initializeEditTopicModel(topicToQa)
 	_, err := tea.NewProgram(model, tea.WithAltScreen()).Run()
 	if err != nil {
@@ -259,15 +260,15 @@ func EditTopic(topicToQa map[string][]QaPair) {
 	}
 }
 
-func initializeEditTopicModel(topicToQa map[string][]QaPair) EditTopicModel {
+func initializeEditTopicModel(topicToQa map[persistence.TopicName][]QaPair) EditTopicModel {
 	m := EditTopicModel{
 		EditingPart: TopicPart,
 	}
-	content := map[string]map[string]string{}
-	for k, v := range topicToQa {
-		content[k] = map[string]string{}
+	content := map[persistence.TopicName]map[string]string{}
+	for topic, v := range topicToQa {
+		content[topic] = map[string]string{}
 		for _, qaPair := range v {
-			content[k][qaPair.Question] = qaPair.Answer
+			content[topic][qaPair.Question] = qaPair.Answer
 		}
 	}
 	m.Content = content

@@ -16,7 +16,7 @@ import (
 type AddNewTopicModel struct {
 	LeftSidePanel   viewport.Model
 	AddNewTopicForm *huh.Form
-	Topics          []string
+	Topics          []persistence.TopicName
 }
 
 func (m AddNewTopicModel) View() string {
@@ -40,7 +40,7 @@ func (m AddNewTopicModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			topicName := m.AddNewTopicForm.GetFocusedField().GetValue().(string)
+			topicName := m.AddNewTopicForm.GetFocusedField().GetValue().(persistence.TopicName)
 			if len(topicName) != 0 {
 				_, err := persistence.AddNewTopic(topicName)
 				if err != nil {
@@ -50,7 +50,7 @@ func (m AddNewTopicModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				var sb strings.Builder
 				for _, topic := range m.Topics {
-					sb.WriteString(topic + "\n\n")
+					sb.WriteString(string(topic) + "\n\n")
 				}
 
 				m.LeftSidePanel.SetContent(sb.String())
@@ -64,7 +64,7 @@ func (m AddNewTopicModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(lspCmd, antfCmd)
 }
 
-func AddNewTopic(topics []string) {
+func AddNewTopic(topics []persistence.TopicName) {
 	_, err := tea.NewProgram(initializeAddNewTopicModel(topics)).Run()
 	if err != nil {
 		panic(err)
@@ -72,7 +72,7 @@ func AddNewTopic(topics []string) {
 	MoveCursorToTopLeft()
 }
 
-func initializeAddNewTopicModel(topics []string) AddNewTopicModel {
+func initializeAddNewTopicModel(topics []persistence.TopicName) AddNewTopicModel {
 	width, height, err := term.GetSize(os.Stdout.Fd())
 	if err != nil {
 		panic(err)
@@ -84,7 +84,7 @@ func initializeAddNewTopicModel(topics []string) AddNewTopicModel {
 	addNewTopicTextInput.Focus()
 	var sb strings.Builder
 	for _, topic := range topics {
-		sb.WriteString(topic + "\n\n")
+		sb.WriteString(string(topic) + "\n\n")
 	}
 	leftSidePanel := viewport.New(leftSidePanelWidth, height)
 	leftSidePanel.SetContent(sb.String())

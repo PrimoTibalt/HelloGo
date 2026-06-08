@@ -13,7 +13,9 @@ const (
 	directoryPermissions    = 0o755
 )
 
-func RetrieveTopicToPathMap() (topics []string) {
+type TopicName string
+
+func RetrieveTopicNames() (topics []TopicName) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
@@ -30,20 +32,20 @@ func RetrieveTopicToPathMap() (topics []string) {
 		panic(getqInfoErr)
 	}
 
-	topics = make([]string, len(questionsDirEntries))
+	topics = make([]TopicName, len(questionsDirEntries))
 	for ptr, dir := range questionsDirEntries {
-		topics[ptr] = dir.Name()
+		topics[ptr] = TopicName(dir.Name())
 	}
 
 	return
 }
 
-func TopicQuestions(topic string) (qaPairs []string) {
+func TopicQuestions(topic TopicName) (qaPairs []string) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
-	pathToTopic := path.Join(homeDir, PathToQuestionsDir, topic)
+	pathToTopic := path.Join(homeDir, PathToQuestionsDir, string(topic))
 	fi, fiErr := os.ReadFile(pathToTopic)
 	if fiErr != nil {
 		panic(fiErr)

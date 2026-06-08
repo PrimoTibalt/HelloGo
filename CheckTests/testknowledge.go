@@ -13,12 +13,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func ChooseTopicsForTest(topics []string) (selectedTopics []string) {
-	options := make([]huh.Option[string], len(topics))
+func ChooseTopicsForTest(topics []persistence.TopicName) (selectedTopics []persistence.TopicName) {
+	options := make([]huh.Option[persistence.TopicName], len(topics))
 	for ptr, topic := range topics {
-		options[ptr] = huh.NewOption(topic, topic)
+		options[ptr] = huh.NewOption(string(topic), topic)
 	}
-	err := huh.NewForm(huh.NewGroup(huh.NewMultiSelect[string]().
+	err := huh.NewForm(huh.NewGroup(huh.NewMultiSelect[persistence.TopicName]().
 		Title("Выбери топик(и) для теста:").
 		Options(options...).
 		Value(&selectedTopics))).
@@ -27,14 +27,14 @@ func ChooseTopicsForTest(topics []string) (selectedTopics []string) {
 		if err != huh.ErrUserAborted {
 			panic(err)
 		} else {
-			return []string{}
+			return []persistence.TopicName{}
 		}
 	}
 
 	return
 }
 
-func RunKnowledgeTest(selectedTopics []string) {
+func RunKnowledgeTest(selectedTopics []persistence.TopicName) {
 	questions := []Question{}
 	for _, topic := range selectedTopics {
 		qaPairs := persistence.TopicQuestions(topic)

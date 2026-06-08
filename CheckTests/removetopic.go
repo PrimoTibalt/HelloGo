@@ -40,19 +40,19 @@ func (m RemoveTopicModel) View() string {
 	return m.RemoveTopicForm.View()
 }
 
-func RemoveTopic(topics []string, topicToQa map[string][]string) {
+func RemoveTopic(topics []persistence.TopicName, topicToQa map[persistence.TopicName][]string) {
 	width, height, err := term.GetSize(os.Stdout.Fd())
 	if err != nil {
 		panic(err)
 	}
 
-	topicsOptions := make([]huh.Option[string], len(topics))
+	topicsOptions := make([]huh.Option[persistence.TopicName], len(topics))
 	for ptr, topic := range topics {
-		topicsOptions[ptr] = huh.NewOption(topic, topic)
+		topicsOptions[ptr] = huh.NewOption(string(topic), topic)
 	}
 
-	var topicToRemove string
-	selectTopicPanel := huh.NewSelect[string]().Options(
+	var topicToRemove persistence.TopicName
+	selectTopicPanel := huh.NewSelect[persistence.TopicName]().Options(
 		topicsOptions...).
 		Value(&topicToRemove)
 	questionsPanel := huh.NewNote().DescriptionFunc(func() string {
@@ -80,7 +80,7 @@ func RemoveTopic(topics []string, topicToQa map[string][]string) {
 		huh.NewConfirm().Value(&userConfirmed).
 			Affirmative("Удалить").Negative("Отмена").
 			Description(GetQuestionsFromTopics(topicToRemove, topicToQa)).
-			Title("Вы уверены что хотите удалить топик \"" + topicToRemove + "\"?").
+			Title("Вы уверены что хотите удалить топик \"" + string(topicToRemove) + "\"?").
 			Run()
 
 		if userConfirmed {

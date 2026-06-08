@@ -25,7 +25,7 @@ const (
 
 type mainOption struct {
 	name   string
-	action func([]string)
+	action func([]persistence.TopicName)
 }
 
 var mainOptions []mainOption
@@ -48,7 +48,7 @@ func init() {
 func main() {
 	for {
 		var action int
-		topics := persistence.RetrieveTopicToPathMap()
+		topics := persistence.RetrieveTopicNames()
 		options := make([]huh.Option[int], len(mainOptions))
 		for ptr, option := range mainOptions {
 			options[ptr] = huh.NewOption(option.name, ptr)
@@ -71,7 +71,7 @@ func main() {
 	}
 }
 
-func testKnowledgeOnTheTopicFunc(topics []string) {
+func testKnowledgeOnTheTopicFunc(topics []persistence.TopicName) {
 	selectedTopics := ChooseTopicsForTest(topics)
 	if len(selectedTopics) == 0 {
 		fmt.Println("Вы не выбрали ничего.")
@@ -80,27 +80,27 @@ func testKnowledgeOnTheTopicFunc(topics []string) {
 	RunKnowledgeTest(selectedTopics)
 }
 
-func addNewQuestionToTopicFunc(topics []string) {
+func addNewQuestionToTopicFunc(topics []persistence.TopicName) {
 	topicToQa := getAllQuestionsForAllTopics(topics)
-	selectedTopic := ChooseTopic(topics, topicToQa)
-	if selectedTopic == UserAborted {
+	selectedTopic, ok := ChooseTopic(topics, topicToQa)
+	if !ok {
 		return
 	}
 
 	RunTopicQuestionAppend(selectedTopic)
 }
 
-func addNewTopicFunc(topics []string) {
+func addNewTopicFunc(topics []persistence.TopicName) {
 	AddNewTopic(topics)
 }
 
-func removeTopicFunc(topics []string) {
+func removeTopicFunc(topics []persistence.TopicName) {
 	topicToQa := getAllQuestionsForAllTopics(topics)
 	RemoveTopic(topics, topicToQa)
 }
 
-func editTopicFunc(topics []string) {
-	topicToQA := make(map[string][]QaPair)
+func editTopicFunc(topics []persistence.TopicName) {
+	topicToQA := make(map[persistence.TopicName][]QaPair)
 	for _, topic := range topics {
 		pairs := []QaPair{}
 		for _, qaLine := range persistence.TopicQuestions(topic) {
@@ -117,8 +117,8 @@ func editTopicFunc(topics []string) {
 	EditTopic(topicToQA)
 }
 
-func getAllQuestionsForAllTopics(topics []string) (topicToQa map[string][]string) {
-	topicToQa = make(map[string][]string)
+func getAllQuestionsForAllTopics(topics []persistence.TopicName) (topicToQa map[persistence.TopicName][]string) {
+	topicToQa = map[persistence.TopicName][]string{}
 	for _, topic := range topics {
 		qaPairs := persistence.TopicQuestions(topic)
 		questions := make([]string, len(qaPairs))
@@ -139,7 +139,7 @@ func MoveCursorToTopLeft() {
 	fmt.Print("\033[H")
 }
 
-func GetQuestionsFromTopics(topic string, topicToQa map[string][]string) (questions string) {
+func GetQuestionsFromTopics(topic persistence.TopicName, topicToQa map[persistence.TopicName][]string) (questions string) {
 	var questionsLineSb strings.Builder
 	for _, question := range topicToQa[topic] {
 		questionsLineSb.WriteString(question + "\n")
