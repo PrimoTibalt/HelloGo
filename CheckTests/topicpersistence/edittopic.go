@@ -6,6 +6,26 @@ import (
 	"slices"
 )
 
+func UpdateTopicFile(topic TopicName, questionsToAdd map[string]string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+
+	filepath := path.Join(homeDir, PathToQuestionsDir, string(topic))
+	file, err := os.Create(filepath)
+	if err != nil {
+		panic(err)
+	}
+
+	appendQuestionToFile(file, questionsToAdd)
+	err = file.Close()
+	if err != nil {
+		panic(err)
+	}
+	return err
+}
+
 func UpdateTopicNames(topics []TopicName) bool {
 	origTopicNames := RetrieveTopicNames()
 	topicsToDelete := []TopicName{}

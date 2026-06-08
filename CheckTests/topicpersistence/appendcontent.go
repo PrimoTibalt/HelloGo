@@ -19,14 +19,22 @@ func AppendQuestionsToTopic(topicName TopicName, questionsToAdd map[string]strin
 
 	defer file.Close()
 
+	if err = appendQuestionToFile(file, questionsToAdd); err != nil {
+		panic(err)
+	}
+}
+
+func appendQuestionToFile(file *os.File, questionsToAdd map[string]string) error {
 	for q, a := range questionsToAdd {
-		_, err = file.Write(
+		_, err := file.Write(
 			[]byte(q +
 				DelimeterQuestionAnswer +
 				a +
 				"\n"))
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
+
+	return nil
 }

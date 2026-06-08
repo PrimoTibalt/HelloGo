@@ -151,6 +151,12 @@ func (m *EditTopicModel) updateQuestionContent(updatedValue string) {
 	content := m.Content[m.SelectedTopic][initialQuestion]
 	delete(m.Content[m.SelectedTopic], initialQuestion)
 	m.Content[m.SelectedTopic][updatedValue] = content
+	persistence.UpdateTopicFile(m.SelectedTopic, m.Content[m.SelectedTopic])
+}
+
+func (m *EditTopicModel) updateAnswerContent(updatedValue string) {
+	m.Content[m.SelectedTopic][m.SelectedQuestion] = updatedValue
+	persistence.UpdateTopicFile(m.SelectedTopic, m.Content[m.SelectedTopic])
 }
 
 func (m *EditTopicModel) noChangesInTopicOrDuplicateName(updatedValue string) bool {
@@ -188,7 +194,7 @@ func (m *EditTopicModel) applyChanges() {
 		}
 		m.updateQuestionContent(updatedValue)
 	case AnswerPart:
-		m.Content[m.SelectedTopic][m.SelectedQuestion] = updatedValue
+		m.updateAnswerContent(updatedValue)
 	}
 }
 
