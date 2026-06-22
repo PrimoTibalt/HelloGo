@@ -22,6 +22,7 @@ func ChooseTopicsForTest(topics []persistence.TopicName) (selectedTopics []persi
 		Title("Выбери топик(и) для теста:").
 		Options(options...).
 		Value(&selectedTopics))).
+		WithProgramOptions(tea.WithAltScreen()).
 		Run()
 	if err != nil {
 		if err != huh.ErrUserAborted {
@@ -52,15 +53,13 @@ func RunKnowledgeTest(selectedTopics []persistence.TopicName) {
 
 	model, err := initializeModel(questions)
 	if err != nil {
-		fmt.Println(err.Error())
-		fmt.Scan()
-		return
-	} else {
-		program := tea.NewProgram(model)
-		_, err := program.Run()
-		if err != nil {
-			panic(err)
-		}
+		panic(err)
+	}
+
+	program := tea.NewProgram(model, tea.WithAltScreen())
+	_, err = program.Run()
+	if err != nil {
+		panic(err)
 	}
 }
 

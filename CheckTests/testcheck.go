@@ -86,13 +86,12 @@ const (
 func (m *TestCheck) setContentWhenNoMoreQuestions() {
 	sb := strings.Builder{}
 	if len(m.FailedQuestions) > 0 {
-		sb.WriteString(
-			fmt.Sprintf("Неправильно ответил на %d вопросов из %d.\n",
-				len(m.FailedQuestions),
-				len(m.FailedQuestions)+len(m.SuccessQuestions)))
+		fmt.Fprintf(&sb, "Неправильно ответил на %d вопросов из %d.\n",
+			len(m.FailedQuestions),
+			len(m.FailedQuestions)+len(m.SuccessQuestions))
 		sb.WriteString("Заваленные вопросы:\n")
 		for _, question := range m.FailedQuestions {
-			sb.WriteString(fmt.Sprintf("Вопрос: %s\nОтвет: %s\n", question.Text, question.Answer))
+			fmt.Fprintf(&sb, "Вопрос: %s\nОтвет: %s\n", question.Text, question.Answer)
 		}
 	} else {
 		sb.WriteString("Вы не завалили ни одного вопроса. Молодец!\n")
@@ -100,7 +99,8 @@ func (m *TestCheck) setContentWhenNoMoreQuestions() {
 
 	resultString := sb.String()
 	m.viewport.SetContent(resultString)
-	m.viewport.Height = strings.Count(resultString, "\n") + 1
+	m.viewport.Height = strings.Count(resultString, "\n") + 3
+	m.viewport.Style.Padding(1)
 }
 
 func (m *TestCheck) computeDistanceBetweenInputAndAnswer() (distance int) {
@@ -111,7 +111,7 @@ func (m *TestCheck) computeDistanceBetweenInputAndAnswer() (distance int) {
 func (m *TestCheck) IsInputAndAnswerEqual(distance int) (result bool) {
 	answerLen := utf8.RuneCountInString(m.CurrentQuestion.Answer)
 	if answerLen <= smallAnswerLen {
-		result = distance <= 1
+		result = distance <= 0
 	} else if answerLen <= mediumAnswerLen {
 		result = distance <= 2
 	} else if answerLen <= bigAnswerLen {
@@ -131,14 +131,13 @@ func (m *TestCheck) IsInputAndAnswerEqual(distance int) (result bool) {
 
 func initializeModel(questions []Question) (testCheckModel TestCheck, err error) {
 	width, height, termSizeErr := term.GetSize(os.Stdout.Fd())
+	if termSizeErr != nil {
+		panic(termSizeErr)
+	}
 	rightPanelWidth := width * 3 / 7
 	leftPanelWidth := width - rightPanelWidth
-	if termSizeErr != nil {
-		width = 80
-	}
-
 	if len(questions) == 0 {
-		err = errors.New("Выбранный файл не содержит вопросов попробуйте добавить новые")
+		err = errors.New("выбранный файл не содержит вопросов попробуйте добавить новые")
 		return TestCheck{}, err
 	}
 	currentQuestion := questions[rand.Intn(len(questions))]
@@ -151,13 +150,14 @@ func initializeModel(questions []Question) (testCheckModel TestCheck, err error)
 	taModel.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	taModel.ShowLineNumbers = false
 	taModel.SetWidth(leftPanelWidth)
+	taModel.FocusedStyle.Base = lipgloss.NewStyle().Border(lipgloss.MarkdownBorder(), false, false, false, true)
 
 	vpModel := viewport.New(leftPanelWidth, 8)
 	vpModel.KeyMap = viewport.KeyMap{}
 	vpModel.KeyMap.Down = key.NewBinding(key.WithKeys("down"))
 	vpModel.KeyMap.Up = key.NewBinding(key.WithKeys("up"))
 	vpModel.Style = vpModel.Style.Border(
-		lipgloss.NormalBorder(),
+		lipgloss.DoubleBorder(),
 		true, true).
 		BorderForeground(lipgloss.Color("6")).
 		Foreground(lipgloss.Color("180"))
@@ -170,7 +170,7 @@ func initializeModel(questions []Question) (testCheckModel TestCheck, err error)
 	vpFailedModel.KeyMap.Up = key.NewBinding(key.WithKeys("up"))
 	vpFailedModel.Style = vpFailedModel.Style.Border(
 		lipgloss.NormalBorder(),
-		true, false, true, false).
+		true).
 		BorderForeground(lipgloss.Color("52"))
 
 	testCheckModel = TestCheck{
