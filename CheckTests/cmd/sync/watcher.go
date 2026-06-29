@@ -16,7 +16,7 @@ type CreateTopic struct {
 	Content string `json:"content"`
 }
 
-func AttachWatcher(path string) error {
+func AttachWatcher(path string, breaker chan bool) error {
 	tailscalepartnerip := os.Getenv("TAILSCALE_PARTNER_IP")
 	tailscalepartnerurl := "http://" + tailscalepartnerip + ":8081"
 	watcher, err := fsnotify.NewWatcher()
@@ -29,6 +29,8 @@ func AttachWatcher(path string) error {
 		for {
 			renamed := false
 			select {
+			case <-breaker:
+				break
 			case event := <-watcher.Events:
 				switch event.Op {
 				case fsnotify.Create:
