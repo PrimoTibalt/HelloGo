@@ -16,7 +16,7 @@ type CreateTopic struct {
 	Content string `json:"content"`
 }
 
-func AttachWatcher(path string, breaker chan bool) error {
+func AttachWatcher(path string) error {
 	tailscalepartnerip := os.Getenv("TAILSCALE_PARTNER_IP")
 	tailscalepartnerurl := "http://" + tailscalepartnerip + ":8081"
 	watcher, err := fsnotify.NewWatcher()
@@ -26,6 +26,7 @@ func AttachWatcher(path string, breaker chan bool) error {
 
 	watcher.Add(path)
 	go func() {
+		defer watcher.Close()
 		for {
 			renamed := false
 			select {

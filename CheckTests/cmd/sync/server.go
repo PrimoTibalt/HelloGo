@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	persistence "primotibalt/checkTests/topicpersistence"
 )
 
 func RunServer() {
@@ -19,6 +20,14 @@ func RunServer() {
 	mux.HandleFunc("POST /removeTopic", removeTopic)
 	mux.HandleFunc("POST /changeTopic", changeTopic)
 	http.ListenAndServe(mytailscaleip+":8081", mux)
+}
+
+func breakWatcher(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		breaker <- true
+		handler(rw, r)
+		AttachWatcher(persistence.QuestionsDir())
+	}
 }
 
 func changeTopic(rw http.ResponseWriter, r *http.Request) {
