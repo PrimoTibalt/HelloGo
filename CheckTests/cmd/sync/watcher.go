@@ -31,7 +31,7 @@ func AttachWatcher(path string) error {
 			renamed := false
 			select {
 			case <-breaker:
-				break
+				goto anchor
 			case event := <-watcher.Events:
 				switch event.Op {
 				case fsnotify.Create:
@@ -106,6 +106,7 @@ func AttachWatcher(path string) error {
 			case err = <-watcher.Errors:
 				panic(err)
 			}
+		anchor:
 		}
 	}()
 
