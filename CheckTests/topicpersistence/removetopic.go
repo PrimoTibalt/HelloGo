@@ -7,12 +7,9 @@ import (
 )
 
 func RemoveTopic(topicName TopicName) (ok bool, err error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
+	questionsDir := QuestionsDir()
 
-	filepath := path.Join(homeDir, PathToQuestionsDir, string(topicName))
+	filepath := path.Join(questionsDir, string(topicName))
 	err = os.Remove(filepath)
 	if err != nil {
 		return false, err

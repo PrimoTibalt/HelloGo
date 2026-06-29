@@ -7,12 +7,9 @@ import (
 )
 
 func UpdateTopicFile(topic TopicName, questionsToAdd map[string]string) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
+	questionsDir := QuestionsDir()
 
-	filepath := path.Join(homeDir, PathToQuestionsDir, string(topic))
+	filepath := path.Join(questionsDir, string(topic))
 	file, err := os.Create(filepath)
 	if err != nil {
 		panic(err)

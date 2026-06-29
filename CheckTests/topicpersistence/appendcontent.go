@@ -6,12 +6,9 @@ import (
 )
 
 func AppendQuestionsToTopic(topicName TopicName, questionsToAdd map[string]string) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
+	questionsDir := QuestionsDir()
 
-	filepath := path.Join(homeDir, PathToQuestionsDir, string(topicName))
+	filepath := path.Join(questionsDir, string(topicName))
 	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		panic(err)

@@ -16,11 +16,7 @@ const (
 type TopicName string
 
 func RetrieveTopicNames() (topics []TopicName) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
-	pathToTopics := path.Join(homeDir, PathToQuestionsDir)
+	pathToTopics := QuestionsDir()
 	if _, err := os.Stat(pathToTopics); err != nil {
 		if err = os.MkdirAll(pathToTopics, directoryPermissions); err != nil {
 			panic(err)
@@ -53,4 +49,12 @@ func TopicQuestions(topic TopicName) (qaPairs []string) {
 
 	content := string(fi)
 	return strings.Split(content, "\n")
+}
+
+func QuestionsDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	return path.Join(homeDir, PathToQuestionsDir)
 }

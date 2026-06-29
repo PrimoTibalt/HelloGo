@@ -7,12 +7,9 @@ import (
 )
 
 func AddNewTopic(topic TopicName) (filepath string, err error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
+	questionsDir := QuestionsDir()
 
-	filepath = path.Join(homeDir, PathToQuestionsDir, string(topic))
+	filepath = path.Join(questionsDir, PathToQuestionsDir, string(topic))
 	file, err := os.Create(filepath)
 	if err != nil {
 		panic(err)
