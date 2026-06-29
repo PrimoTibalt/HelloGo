@@ -16,9 +16,9 @@ func RunServer() {
 		panic(errors.New("no ip in TAILSCALE_IP was provided"))
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /createTopic", createNewTopic)
-	mux.HandleFunc("POST /removeTopic", removeTopic)
-	mux.HandleFunc("POST /changeTopic", changeTopic)
+	mux.HandleFunc("POST /createTopic", breakWatcher(createNewTopic))
+	mux.HandleFunc("POST /removeTopic", breakWatcher(removeTopic))
+	mux.HandleFunc("POST /changeTopic", breakWatcher(changeTopic))
 	http.ListenAndServe(mytailscaleip+":8081", mux)
 }
 
