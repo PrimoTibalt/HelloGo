@@ -4,9 +4,11 @@ import (
 	persistence "primotibalt/checkTests/topicpersistence"
 )
 
-var breaker chan bool
-
 func main() {
-	AttachWatcher(persistence.QuestionsDir())
-	RunServer()
+	var (
+		breaker  = make(chan bool)
+		notifier = make(chan bool)
+	)
+	AttachWatcher(persistence.QuestionsDir(), breaker, notifier)
+	RunServer(breaker, notifier)
 }

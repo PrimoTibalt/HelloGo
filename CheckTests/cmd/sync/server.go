@@ -10,23 +10,24 @@ import (
 	persistence "primotibalt/checkTests/topicpersistence"
 )
 
-func RunServer() {
+func RunServer(breaker chan bool, notifier chan bool) {
 	mytailscaleip := os.Getenv("TAILSCALE_IP")
 	if mytailscaleip == "" {
 		panic(errors.New("no ip in TAILSCALE_IP was provided"))
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /createTopic", breakWatcher(createNewTopic))
-	mux.HandleFunc("POST /removeTopic", breakWatcher(removeTopic))
-	mux.HandleFunc("POST /changeTopic", breakWatcher(changeTopic))
+	mux.HandleFunc("POST /createTopic", breakWatcher(createNewTopic, breaker, notifier))
+	mux.HandleFunc("POST /removeTopic", breakWatcher(removeTopic, breaker, notifier))
+	mux.HandleFunc("POST /changeTopic", breakWatcher(changeTopic, breaker, notifier))
 	http.ListenAndServe(mytailscaleip+":8081", mux)
 }
 
-func breakWatcher(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+func breakWatcher(handler func(http.ResponseWriter, *http.Request), breaker chan bool, notifier chan bool) func(http.ResponseWriter, *http.Request) {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		breaker <- true
+		<-notifier
 		handler(rw, r)
-		AttachWatcher(persistence.QuestionsDir())
+		AttachWatcher(persistence.QuestionsDir(), breaker, notifier)
 	}
 }
 
