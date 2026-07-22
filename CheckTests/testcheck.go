@@ -22,14 +22,14 @@ type Question struct {
 }
 
 func (q *Question) PrintAnswer(consoleWidth int) string {
-	return print(q.Answer, consoleWidth)
+	return printWithoutBreaksInWords(q.Answer, consoleWidth)
 }
 
 func (q *Question) PrintText(consoleWidth int) string {
-	return print(q.Text, consoleWidth)
+	return printWithoutBreaksInWords(q.Text, consoleWidth)
 }
 
-func print(text string, consoleWidth int) (splitText string) {
+func printWithoutBreaksInWords(text string, consoleWidth int) (splitText string) {
 	var builder strings.Builder
 	var counter int
 	var index int
@@ -52,7 +52,15 @@ func print(text string, consoleWidth int) (splitText string) {
 			if counter == len(runes)-1 {
 				counter++
 			}
-			builder.WriteString(string(runes[lastWhitespaceIdx:counter]))
+
+			switch {
+			case lastWhitespaceIdx == 0:
+				builder.WriteString(string(runes[0:counter]))
+			case lastWhitespaceIdx+1 < counter && counter != len(runes):
+				builder.WriteString(string(runes[lastWhitespaceIdx+1 : counter+1]))
+			case lastWhitespaceIdx+1 < counter:
+				builder.WriteString(string(runes[lastWhitespaceIdx+1 : counter]))
+			}
 			lastWhitespaceIdx = counter
 		}
 		index++
@@ -158,11 +166,12 @@ func initializeModel(questions []Question) (testCheckModel TestCheck, err error)
 	vpModel.KeyMap.Up = key.NewBinding(key.WithKeys("up"))
 	vpModel.Style = vpModel.Style.Border(
 		lipgloss.DoubleBorder(),
-		true, true).
+		true, true,
+	).
 		BorderForeground(lipgloss.Color("6")).
 		Foreground(lipgloss.Color("180"))
 
-	vpModel.SetContent(currentQuestion.Text)
+	vpModel.SetContent(currentQuestion.PrintText(vpModel.Width))
 
 	vpFailedModel := viewport.New(rightPanelWidth, height-2)
 	vpFailedModel.KeyMap = viewport.KeyMap{}
@@ -170,7 +179,8 @@ func initializeModel(questions []Question) (testCheckModel TestCheck, err error)
 	vpFailedModel.KeyMap.Up = key.NewBinding(key.WithKeys("up"))
 	vpFailedModel.Style = vpFailedModel.Style.Border(
 		lipgloss.NormalBorder(),
-		true).
+		true,
+	).
 		BorderForeground(lipgloss.Color("52"))
 
 	testCheckModel = TestCheck{
@@ -194,7 +204,9 @@ func (m *TestCheck) prepareNextQuestion() {
 	if questionsToAskCount > 0 {
 		selectedQuestionIndex := rand.Intn(questionsToAskCount)
 		m.CurrentQuestion = &m.Questions[selectedQuestionIndex]
-		m.viewport.SetContent(m.CurrentQuestion.PrintText(m.viewport.Width))
+		resultString := m.CurrentQuestion.PrintText(m.viewport.Width)
+		m.viewport.SetContent(resultString)
+		m.viewport.Height = strings.Count(resultString, "\n") + 3
 	} else {
 		m.setContentWhenNoMoreQuestions()
 	}
@@ -209,7 +221,8 @@ func (m *TestCheck) prepareFailedVpContent(yourAnswer string) {
 	}
 
 	m.vpFailed.SetContent(
-		print("V: "+m.CurrentQuestion.Answer, m.vpFailed.Width-1) + "\n" +
-			print("X: "+yourAnswer, m.vpFailed.Width-1) + "\n" +
-			builder.String())
+		printWithoutBreaksInWords("V: "+m.CurrentQuestion.Answer, m.vpFailed.Width-1) + "\n" +
+			printWithoutBreaksInWords("X: "+yourAnswer, m.vpFailed.Width-1) + "\n" +
+			builder.String(),
+	)
 }
