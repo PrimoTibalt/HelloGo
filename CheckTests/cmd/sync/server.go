@@ -16,18 +16,17 @@ func RunServer(breaker chan bool, notifier chan bool) {
 		panic(errors.New("no ip in TAILSCALE_IP was provided"))
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /createTopic", breakWatcher(createNewTopic, breaker, notifier))
-	mux.HandleFunc("POST /removeTopic", breakWatcher(removeTopic, breaker, notifier))
-	mux.HandleFunc("POST /changeTopic", breakWatcher(changeTopic, breaker, notifier))
+	mux.HandleFunc("POST /createTopic", breakWatcher(createNewTopic, breaker))
+	mux.HandleFunc("POST /removeTopic", breakWatcher(removeTopic, breaker))
+	mux.HandleFunc("POST /changeTopic", breakWatcher(changeTopic, breaker))
 	http.ListenAndServe(mytailscaleip+":8081", mux)
 }
 
-func breakWatcher(handler func(http.ResponseWriter, *http.Request), breaker chan bool, notifier chan bool) func(http.ResponseWriter, *http.Request) {
+func breakWatcher(handler func(http.ResponseWriter, *http.Request), breaker chan bool) func(http.ResponseWriter, *http.Request) {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		breaker <- true
-		<-notifier
 		handler(rw, r)
-		AttachWatcher(persistence.QuestionsDir(), breaker, notifier)
+		AttachWatcher(persistence.QuestionsDir(), breaker)
 	}
 }
 

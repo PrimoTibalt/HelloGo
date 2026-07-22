@@ -9,6 +9,7 @@ func main() {
 		breaker  = make(chan bool)
 		notifier = make(chan bool)
 	)
-	AttachWatcher(persistence.QuestionsDir(), breaker, notifier)
+
+	AttachWatcher(persistence.QuestionsDir(), breaker)
 	RunServer(breaker, notifier)
 }

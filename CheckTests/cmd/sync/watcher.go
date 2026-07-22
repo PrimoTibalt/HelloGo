@@ -16,7 +16,7 @@ type CreateTopic struct {
 	Content string `json:"content"`
 }
 
-func AttachWatcher(path string, breaker chan bool, notifier chan bool) error {
+func AttachWatcher(path string, breaker chan bool) error {
 	tailscalepartnerip := os.Getenv("TAILSCALE_PARTNER_IP")
 	tailscalepartnerurl := "http://" + tailscalepartnerip + ":8081"
 	watcher, err := fsnotify.NewWatcher()
@@ -25,7 +25,7 @@ func AttachWatcher(path string, breaker chan bool, notifier chan bool) error {
 	}
 
 	watcher.Add(path)
-	go func(breaker chan bool, notifier chan bool) {
+	go func(breaker chan bool) {
 		defer watcher.Close()
 		for {
 			renamed := false
@@ -60,6 +60,7 @@ func AttachWatcher(path string, breaker chan bool, notifier chan bool) error {
 					if err != nil {
 						fmt.Println(err)
 					}
+					fmt.Println("Finished creating")
 				case fsnotify.Remove:
 					fmt.Println("Removing...")
 					_, err := http.DefaultClient.Post(
@@ -70,6 +71,7 @@ func AttachWatcher(path string, breaker chan bool, notifier chan bool) error {
 					if err != nil {
 						fmt.Println(err)
 					}
+					fmt.Println("Finished removing")
 				case fsnotify.Rename:
 					fmt.Println("Renaming...")
 					_, err := http.DefaultClient.Post(
@@ -80,6 +82,7 @@ func AttachWatcher(path string, breaker chan bool, notifier chan bool) error {
 					if err != nil {
 						fmt.Println(err)
 					}
+					fmt.Println("Finished renaming")
 				case fsnotify.Write:
 					fmt.Println("Writing...")
 					createTopicModel := CreateTopic{}
@@ -103,14 +106,14 @@ func AttachWatcher(path string, breaker chan bool, notifier chan bool) error {
 					if err != nil {
 						fmt.Println(err)
 					}
+					fmt.Println("Finished writing")
 				}
 			case err = <-watcher.Errors:
 				panic(err)
 			}
-		anchor:
-			notifier <- true
 		}
-	}(breaker, notifier)
+	anchor:
+	}(breaker)
 
 	return nil
 }
