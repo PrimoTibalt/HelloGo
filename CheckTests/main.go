@@ -54,7 +54,6 @@ func init() {
 func main() {
 	for {
 		var action int
-		topics := persistence.RetrieveTopicNames()
 		options := make([]huh.Option[int], len(mainOptions))
 		for ptr, option := range mainOptions {
 			options[ptr] = huh.NewOption(option.name, ptr)
@@ -73,6 +72,7 @@ func main() {
 			os.Exit(0)
 		}
 
+		topics := persistence.RetrieveTopicNames()
 		mainOptions[action].action(topics)
 	}
 }
