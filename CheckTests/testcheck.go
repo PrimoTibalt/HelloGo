@@ -55,7 +55,7 @@ func printWithoutBreaksInWords(text string, consoleWidth int) (splitText string)
 
 			switch {
 			case lastWhitespaceIdx == 0:
-				builder.WriteString(string(runes[0:counter]))
+				builder.WriteString(string(runes[0 : counter+1]))
 			case lastWhitespaceIdx+1 < counter && counter != len(runes):
 				builder.WriteString(string(runes[lastWhitespaceIdx+1 : counter+1]))
 			case lastWhitespaceIdx+1 < counter:

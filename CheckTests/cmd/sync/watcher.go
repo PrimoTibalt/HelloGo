@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"strings"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -17,8 +19,10 @@ type CreateTopic struct {
 }
 
 func AttachWatcher(path string, breaker chan bool) error {
-	tailscalepartnerip := os.Getenv("TAILSCALE_PARTNER_IP")
-	tailscalepartnerurl := "http://" + tailscalepartnerip + ":8081"
+	partnerurls, err := PartnerURLs()
+	if err != nil {
+		return err
+	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -34,6 +38,9 @@ func AttachWatcher(path string, breaker chan bool) error {
 				fmt.Println("Waiting for operation to complete")
 				goto anchor
 			case event := <-watcher.Events:
+				if isHiddenName(filename(event.Name)) {
+					continue
+				}
 				switch event.Op {
 				case fsnotify.Create:
 					createTopicModel := CreateTopic{}
@@ -51,37 +58,17 @@ func AttachWatcher(path string, breaker chan bool) error {
 					body, err := json.Marshal(&createTopicModel)
 					if err != nil {
 						fmt.Printf("could not marshal %v\n", createTopicModel)
+						continue
 					}
-					_, err = http.DefaultClient.Post(
-						tailscalepartnerurl+"/createTopic",
-						"application/json",
-						bytes.NewReader(body),
-					)
-					if err != nil {
-						fmt.Println(err)
-					}
+					broadcast(partnerurls, "/createTopic", "application/json", body)
 					fmt.Println("Finished creating")
 				case fsnotify.Remove:
 					fmt.Println("Removing...")
-					_, err := http.DefaultClient.Post(
-						tailscalepartnerurl+"/removeTopic",
-						"text",
-						strings.NewReader(event.Name),
-					)
-					if err != nil {
-						fmt.Println(err)
-					}
+					broadcast(partnerurls, "/removeTopic", "text", []byte(event.Name))
 					fmt.Println("Finished removing")
 				case fsnotify.Rename:
 					fmt.Println("Renaming...")
-					_, err := http.DefaultClient.Post(
-						tailscalepartnerurl+"/removeTopic",
-						"text",
-						strings.NewReader(event.Name),
-					)
-					if err != nil {
-						fmt.Println(err)
-					}
+					broadcast(partnerurls, "/removeTopic", "text", []byte(event.Name))
 					fmt.Println("Finished renaming")
 				case fsnotify.Write:
 					fmt.Println("Writing...")
@@ -98,14 +85,7 @@ func AttachWatcher(path string, breaker chan bool) error {
 						fmt.Println("could not marshal new changes")
 						continue
 					}
-					_, err = http.DefaultClient.Post(
-						tailscalepartnerurl+"/changeTopic",
-						"application/json",
-						bytes.NewReader(body),
-					)
-					if err != nil {
-						fmt.Println(err)
-					}
+					broadcast(partnerurls, "/changeTopic", "application/json", body)
 					fmt.Println("Finished writing")
 				}
 			case err = <-watcher.Errors:
@@ -116,4 +96,38 @@ func AttachWatcher(path string, breaker chan bool) error {
 	}(breaker)
 
 	return nil
+}
+
+// broadcast sends the same local change to every partner at once, so a slow or
+// unreachable machine does not delay the rest of them.
+func broadcast(partnerurls []string, endpoint string, contentType string, body []byte) {
+	var waitgroup sync.WaitGroup
+	for _, partnerurl := range partnerurls {
+		waitgroup.Add(1)
+		go func() {
+			defer waitgroup.Done()
+			response, err := http.DefaultClient.Post(
+				partnerurl+endpoint,
+				contentType,
+				bytes.NewReader(body),
+			)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			defer response.Body.Close()
+			if response.StatusCode != http.StatusOK {
+				fmt.Println(partnerurl + endpoint + " answered with " + response.Status)
+			}
+		}()
+	}
+	waitgroup.Wait()
+}
+
+// filename is the topic name inside a watcher event, which reports full paths.
+func filename(eventName string) string {
+	if strings.ContainsRune(eventName, '/') {
+		return path.Base(eventName)
+	}
+	return eventName
 }
