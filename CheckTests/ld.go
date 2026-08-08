@@ -1,8 +1,26 @@
 package main
 
 import (
+	"strings"
 	"unicode/utf8"
 )
+
+// IgnoreIndentation drops the whitespace that only lays a snippet out — the
+// spaces and tabs around every line, and blank lines altogether — so that a
+// code answer typed at a different indentation still comes out at distance 0.
+func IgnoreIndentation(text string) string {
+	lines := []string{}
+	for line := range strings.SplitSeq(text, "\n") {
+		line = strings.Trim(line, " \t\r")
+		if line == "" {
+			continue
+		}
+
+		lines = append(lines, line)
+	}
+
+	return strings.Join(lines, "\n")
+}
 
 func Ld(actual, expected string) (distance int) {
 	m, n := utf8.RuneCountInString(expected)+1, utf8.RuneCountInString(actual)+1

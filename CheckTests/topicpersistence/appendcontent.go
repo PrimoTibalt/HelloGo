@@ -23,11 +23,7 @@ func AppendQuestionsToTopic(topicName TopicName, questionsToAdd map[string]strin
 
 func appendQuestionToFile(file *os.File, questionsToAdd map[string]string) error {
 	for q, a := range questionsToAdd {
-		_, err := file.Write(
-			[]byte(q +
-				DelimeterQuestionAnswer +
-				a +
-				"\n"))
+		_, err := file.Write([]byte(FormatQaLine(q, a)))
 		if err != nil {
 			return err
 		}

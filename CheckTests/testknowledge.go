@@ -40,13 +40,11 @@ func RunKnowledgeTest(selectedTopics []persistence.TopicName) {
 	for _, topic := range selectedTopics {
 		qaPairs := persistence.TopicQuestions(topic)
 		for _, pair := range qaPairs {
-			if !strings.Contains(pair, persistence.DelimeterQuestionAnswer) {
+			question, answer, ok := persistence.ParseQaLine(pair)
+			if !ok {
 				continue
 			}
 
-			qa := strings.Split(pair, persistence.DelimeterQuestionAnswer)
-			question := qa[0]
-			answer := qa[1]
 			questions = append(questions, Question{answer, question})
 		}
 	}
@@ -56,7 +54,7 @@ func RunKnowledgeTest(selectedTopics []persistence.TopicName) {
 		panic(err)
 	}
 
-	program := tea.NewProgram(model, tea.WithAltScreen())
+	program := tea.NewProgram(model, tea.WithAltScreen(), tea.WithInput(terminalInput))
 	_, err = program.Run()
 	if err != nil {
 		panic(err)
@@ -84,6 +82,12 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
+			// shift+enter reaches us as alt+enter; the textarea has already
+			// turned it into a line break, so there is nothing to submit.
+			if msg.Alt {
+				break
+			}
+
 			if len(m.Questions) < 1 {
 				switch strings.Trim(m.textarea.Value(), " \n") {
 				case "r", "R", "reset":
@@ -109,13 +113,9 @@ func (m TestCheck) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textarea.Reset()
 			m.prepareNextQuestion()
 		}
-	default:
-		if m.textarea.Length() == m.textarea.Width()*m.textarea.Height() {
-			currentContent := m.textarea.Value()
-			m.textarea.SetHeight(m.textarea.Height() + 1)
-			m.textarea.SetValue(currentContent)
-		}
 	}
+
+	m.growTextareaToFitInput()
 
 	return m, tea.Batch(taCmd, vpCmd, vpFailedCmd)
 }

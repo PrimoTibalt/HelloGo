@@ -29,7 +29,18 @@ func (q *Question) PrintText(consoleWidth int) string {
 	return printWithoutBreaksInWords(q.Text, consoleWidth)
 }
 
+// printWithoutBreaksInWords wraps each line on its own, so the line breaks a
+// code snippet was written with survive into the panel.
 func printWithoutBreaksInWords(text string, consoleWidth int) (splitText string) {
+	lines := []string{}
+	for line := range strings.SplitSeq(text, "\n") {
+		lines = append(lines, wrapWithoutBreaksInWords(line, consoleWidth))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func wrapWithoutBreaksInWords(text string, consoleWidth int) (splitText string) {
 	var builder strings.Builder
 	var counter int
 	var index int
@@ -83,6 +94,7 @@ type TestCheck struct {
 }
 
 const (
+	initialTextareaHeight    = 2
 	smallAnswerLen           = 10
 	mediumAnswerLen          = 15
 	bigAnswerLen             = 25
@@ -112,12 +124,12 @@ func (m *TestCheck) setContentWhenNoMoreQuestions() {
 }
 
 func (m *TestCheck) computeDistanceBetweenInputAndAnswer() (distance int) {
-	distance = Ld(strings.Trim(m.textarea.Value(), " \n\r"), m.CurrentQuestion.Answer)
+	distance = Ld(IgnoreIndentation(m.textarea.Value()), IgnoreIndentation(m.CurrentQuestion.Answer))
 	return
 }
 
 func (m *TestCheck) IsInputAndAnswerEqual(distance int) (result bool) {
-	answerLen := utf8.RuneCountInString(m.CurrentQuestion.Answer)
+	answerLen := utf8.RuneCountInString(IgnoreIndentation(m.CurrentQuestion.Answer))
 	if answerLen <= smallAnswerLen {
 		result = distance <= 0
 	} else if answerLen <= mediumAnswerLen {
@@ -152,8 +164,12 @@ func initializeModel(questions []Question) (testCheckModel TestCheck, err error)
 
 	taModel := textarea.New()
 	taModel.Focus()
-	taModel.SetHeight(2)
+	taModel.SetHeight(initialTextareaHeight)
 	taModel.KeyMap = textarea.DefaultKeyMap
+	// Enter submits the answer, so a line break needs a key of its own.
+	taModel.KeyMap.InsertNewline = key.NewBinding(
+		key.WithKeys(newLineKeys...),
+		key.WithHelp("shift+enter", "новая строка"))
 	taModel.Placeholder = defaultTaPlaceholder
 	taModel.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	taModel.ShowLineNumbers = false
@@ -196,7 +212,26 @@ func initializeModel(questions []Question) (testCheckModel TestCheck, err error)
 	return
 }
 
+// growTextareaToFitInput keeps every line the answer has so far on screen,
+// whether the lines came from wrapping or from shift+enter.
+func (m *TestCheck) growTextareaToFitInput() {
+	needed := max(m.textarea.Height(), m.textarea.LineCount())
+	if m.textarea.Length() >= m.textarea.Width()*m.textarea.Height() {
+		needed++
+	}
+
+	if needed == m.textarea.Height() {
+		return
+	}
+
+	currentContent := m.textarea.Value()
+	m.textarea.SetHeight(needed)
+	m.textarea.SetValue(currentContent)
+}
+
 func (m *TestCheck) prepareNextQuestion() {
+	m.textarea.SetHeight(initialTextareaHeight)
+
 	questionIndex := slices.Index(m.Questions, *m.CurrentQuestion)
 	m.Questions = slices.Delete(m.Questions, questionIndex, questionIndex+1)
 

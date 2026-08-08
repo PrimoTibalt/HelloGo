@@ -67,18 +67,16 @@ func RunTopicQuestionAppend(selectedTopic persistence.TopicName) {
 	questions := []Question{}
 	qaPairs := persistence.TopicQuestions(selectedTopic)
 	for _, pair := range qaPairs {
-		if !strings.Contains(pair, persistence.DelimeterQuestionAnswer) {
+		question, answer, ok := persistence.ParseQaLine(pair)
+		if !ok {
 			continue
 		}
 
-		qa := strings.Split(pair, persistence.DelimeterQuestionAnswer)
-		question := qa[0]
-		answer := qa[1]
 		questions = append(questions, Question{answer, question})
 	}
 
 	model := initializeQuestionAppendModel(questions, selectedTopic)
-	program := tea.NewProgram(model)
+	program := tea.NewProgram(model, tea.WithInput(terminalInput))
 	_, err := program.Run()
 	if err != nil {
 		panic(err)
@@ -96,6 +94,12 @@ func (appendQuestionModel AppendQuestion) Update(msg tea.Msg) (tea.Model, tea.Cm
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return appendQuestionModel, tea.Batch(tea.ClearScreen, tea.Quit)
 		case tea.KeyEnter:
+			// shift+enter arrives as alt+enter, which huh's text field already
+			// binds to "new line" — let it through instead of moving on.
+			if msg.Alt {
+				break
+			}
+
 			if appendQuestionModel.QuestionSet {
 				answer := appendQuestionModel.QaForm.GetFocusedField().GetValue()
 				appendQuestionModel.QaForm.PrevField()

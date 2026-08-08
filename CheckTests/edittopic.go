@@ -171,13 +171,16 @@ func (m *EditTopicModel) noChangesInQuestionOrDuplicateText(updatedValue string)
 
 func (m *EditTopicModel) applyChanges() {
 	updatedValue := strings.Trim(selectedValue, "\n\t ")
-	if updatedValue == "" || strings.Contains(selectedValue, "\n") {
+	// Questions and answers may hold code snippets and so span several lines;
+	// a topic name is a file name, so it may not.
+	multiLineTopicName := m.EditingPart == TopicPart && strings.Contains(updatedValue, "\n")
+	if updatedValue == "" || multiLineTopicName {
 		var errorMsg string
 		switch {
 		case updatedValue == "":
 			errorMsg = "Новое значение не содержит никаких символов, так нельзя"
-		case strings.Contains(selectedValue, "\n"):
-			errorMsg = "Нельзя переходить на новую строку в тексте нового значения"
+		case multiLineTopicName:
+			errorMsg = "Нельзя переходить на новую строку в имени топика"
 		}
 		displayErrorNotification(errorMsg)
 		return
@@ -209,11 +212,11 @@ func (m *EditTopicModel) updateSelectWithOptions() {
 				}
 			case QuestionPart:
 				for question := range m.Content[m.SelectedTopic] {
-					options = append(options, huh.NewOption(question, question))
+					options = append(options, huh.NewOption(asOneLine(question), question))
 				}
 			case AnswerPart:
 				for _, answer := range m.Content[m.SelectedTopic] {
-					options = append(options, huh.NewOption(answer, answer))
+					options = append(options, huh.NewOption(asOneLine(answer), answer))
 				}
 			default:
 				panic(errors.New("неизвестное состояние для селекта"))
@@ -239,8 +242,7 @@ func (m *EditTopicModel) updateInputWithNewValue() {
 		note = m.Content[m.SelectedTopic][m.SelectedQuestion]
 	}
 	m.Original = note
-	m.Input = huh.NewText().Value(&selectedValue)
-	m.Input.Focus()
+	m.Input = newSnippetInput()
 }
 
 func (m *EditTopicModel) calculatePrevState() {
@@ -273,8 +275,7 @@ func (m *EditTopicModel) calculateNextState() {
 		note := m.Content[m.SelectedTopic][m.SelectedQuestion]
 		selectedValue = note
 		m.Original = note
-		m.Input = huh.NewText().Value(&selectedValue)
-		m.Input.Focus()
+		m.Input = newSnippetInput()
 	} else {
 		m.updateSelectWithOptions()
 	}
@@ -282,10 +283,29 @@ func (m *EditTopicModel) calculateNextState() {
 
 func EditTopic(topicToQa map[persistence.TopicName][]QaPair) {
 	model := initializeEditTopicModel(topicToQa)
-	_, err := tea.NewProgram(model, tea.WithAltScreen()).Run()
+	_, err := tea.NewProgram(model, tea.WithAltScreen(), tea.WithInput(terminalInput)).Run()
 	if err != nil {
 		panic(err)
 	}
+}
+
+// asOneLine keeps a multi-line snippet from pushing the rows of a select apart:
+// only the label is folded, the option still carries the real value.
+func asOneLine(text string) string {
+	return strings.ReplaceAll(text, "\n", " ⏎ ")
+}
+
+// newSnippetInput builds the editor for a question or an answer. The field runs
+// on its own rather than inside a form, so nothing hands it a keymap — without
+// one there is no binding for a line break at all.
+func newSnippetInput() *huh.Text {
+	keymap := huh.NewDefaultKeyMap()
+	keymap.Text.NewLine.SetKeys(newLineKeys...)
+
+	input := huh.NewText().Value(&selectedValue)
+	input.WithKeyMap(keymap)
+	input.Focus()
+	return input
 }
 
 func initializeEditTopicModel(topicToQa map[persistence.TopicName][]QaPair) EditTopicModel {

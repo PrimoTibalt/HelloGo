@@ -52,6 +52,9 @@ func init() {
 }
 
 func main() {
+	requestExtendedKeys()
+	defer releaseExtendedKeys()
+
 	for {
 		var action int
 		options := make([]huh.Option[int], len(mainOptions))
@@ -69,7 +72,9 @@ func main() {
 				panic(err)
 			}
 
-			os.Exit(0)
+			// Returning rather than exiting so the terminal gets its
+			// extended-keys setting back.
+			return
 		}
 
 		topics := persistence.RetrieveTopicNames()
@@ -110,11 +115,11 @@ func editTopicFunc(topics []persistence.TopicName) {
 	for _, topic := range topics {
 		pairs := []QaPair{}
 		for _, qaLine := range persistence.TopicQuestions(topic) {
-			qa := strings.Split(qaLine, persistence.DelimeterQuestionAnswer)
-			if len(qa) < 2 {
+			question, answer, ok := persistence.ParseQaLine(qaLine)
+			if !ok {
 				continue
 			}
-			pairs = append(pairs, QaPair{qa[0], qa[1]})
+			pairs = append(pairs, QaPair{question, answer})
 		}
 
 		topicToQA[topic] = pairs
@@ -126,10 +131,13 @@ func editTopicFunc(topics []persistence.TopicName) {
 func getAllQuestionsForAllTopics(topics []persistence.TopicName) (topicToQa map[persistence.TopicName][]string) {
 	topicToQa = map[persistence.TopicName][]string{}
 	for _, topic := range topics {
-		qaPairs := persistence.TopicQuestions(topic)
-		questions := make([]string, len(qaPairs))
-		for questionPtr, qaLine := range qaPairs {
-			questions[questionPtr] = strings.Split(qaLine, persistence.DelimeterQuestionAnswer)[0]
+		questions := []string{}
+		for _, qaLine := range persistence.TopicQuestions(topic) {
+			question, _, ok := persistence.ParseQaLine(qaLine)
+			if !ok {
+				continue
+			}
+			questions = append(questions, question)
 		}
 
 		topicToQa[topic] = questions
