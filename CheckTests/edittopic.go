@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"os"
-	persistence "primotibalt/checkTests/topicpersistence"
+	"slices"
 	"strings"
+
+	persistence "primotibalt/checkTests/topicpersistence"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -23,6 +25,11 @@ type EditTopicModel struct {
 	Content          map[persistence.TopicName]map[string]string
 	SelectedTopic    persistence.TopicName
 	SelectedQuestion string
+
+	// QuestionsNote lists the questions of the topic under the cursor while a
+	// topic is being picked, and is nil in every other state.
+	QuestionsNote *huh.Note
+	HoveredTopic  persistence.TopicName
 }
 
 type EditingPart string
@@ -90,25 +97,53 @@ func (m EditTopicModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *EditTopicModel) processInputInSelectingMode(msg tea.Msg) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if (msg.String() == "tab" || msg.String() == "enter") && m.EditingPart != AnswerPart {
-			m.calculateNextState()
-		}
-		if msg.String() == "shift+tab" && m.EditingPart != TopicPart {
-			m.calculatePrevState()
-		}
-		if msg.String() == "e" {
+	if key, isKey := msg.(tea.KeyMsg); isKey {
+		switch key.String() {
+		case "tab", "enter":
+			if m.EditingPart != AnswerPart {
+				m.calculateNextState()
+			}
+		case "shift+tab", "esc":
+			if m.EditingPart != TopicPart {
+				m.calculatePrevState()
+			}
+		case "e":
 			m.updateInputWithNewValue()
 		}
-		teaModel, _ := m.Select.Update(msg)
-		teaSelect, _ := teaModel.(*huh.Form)
-		m.Select = teaSelect
-	default:
-		teaModel, _ := m.Select.Update(msg)
-		teaSelect, _ := teaModel.(*huh.Form)
-		m.Select = teaSelect
 	}
+
+	teaModel, _ := m.Select.Update(msg)
+	teaSelect, _ := teaModel.(*huh.Form)
+	m.Select = teaSelect
+
+	if m.showQuestionsOfHoveredTopic() {
+		rebuildFormView(m.Select)
+	}
+}
+
+// showQuestionsOfHoveredTopic points the questions panel at the topic the
+// cursor moved onto. Reports whether the panel changed.
+func (m *EditTopicModel) showQuestionsOfHoveredTopic() bool {
+	if m.QuestionsNote == nil || persistence.TopicName(selectedValue) == m.HoveredTopic {
+		return false
+	}
+
+	m.HoveredTopic = persistence.TopicName(selectedValue)
+	m.QuestionsNote.Description(questionsOfTopic(m.Content[m.HoveredTopic]))
+
+	return true
+}
+
+// questionsOfTopic lists a topic's questions one per line, in a stable order
+// since the content is kept in a map.
+func questionsOfTopic(content map[string]string) string {
+	questions := make([]string, 0, len(content))
+	for question := range content {
+		questions = append(questions, asOneLine(question))
+	}
+	slices.Sort(questions)
+
+	return strings.Join(questions, "\n")
 }
 
 func (m *EditTopicModel) processInputInEditingMode(msg tea.Msg) {
@@ -202,7 +237,7 @@ func (m *EditTopicModel) applyChanges() {
 }
 
 func (m *EditTopicModel) updateSelectWithOptions() {
-	m.Select = huh.NewForm(huh.NewGroup(huh.NewSelect[string]().
+	partSelect := huh.NewSelect[string]().
 		Options(func() []huh.Option[string] {
 			options := []huh.Option[string]{}
 			switch m.EditingPart {
@@ -224,8 +259,27 @@ func (m *EditTopicModel) updateSelectWithOptions() {
 			return options
 		}()...).
 		Value(&selectedValue).
-		Title(getTitleForSelectByState(m.EditingPart))))
-	m.Select.NextField()
+		Title(getTitleForSelectByState(m.EditingPart))
+
+	fields := []huh.Field{partSelect}
+	// A question is easier to track down when the topic list shows what each
+	// topic holds, the way the topic picker of "add question" does.
+	m.QuestionsNote = nil
+	m.HoveredTopic = ""
+	if m.EditingPart == TopicPart {
+		m.QuestionsNote = newQuestionsNote()
+		fields = append(fields, m.QuestionsNote)
+	}
+
+	// The form is sized here as well as in View because a group renders the
+	// view it cached, and a note laid out at no width at all drops its text.
+	width, height := terminalSize()
+	m.Select = huh.NewForm(huh.NewGroup(fields...)).
+		WithWidth(width - Padding).
+		WithHeight(height - Padding)
+	m.showQuestionsOfHoveredTopic()
+	// A brand new form has never been updated, so it has nothing to render yet.
+	rebuildFormView(m.Select)
 }
 
 func (m *EditTopicModel) updateInputWithNewValue() {

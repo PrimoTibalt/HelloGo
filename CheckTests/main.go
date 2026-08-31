@@ -23,6 +23,8 @@ const (
 	removeTopic             = "Удалить топик"
 	editTopic               = "Редактировать топик"
 	Padding                 = 1 // for some reason it just works and prevent first line of the select from disappearing
+	fallbackWidth           = 80
+	fallbackHeight          = 24
 )
 
 type mainOption struct {
@@ -83,7 +85,8 @@ func main() {
 }
 
 func testKnowledgeOnTheTopicFunc(topics []persistence.TopicName) {
-	selectedTopics := ChooseTopicsForTest(topics)
+	topicToQa := getAllQuestionsForAllTopics(topics)
+	selectedTopics := ChooseTopicsForTest(topics, topicToQa)
 	if len(selectedTopics) == 0 {
 		fmt.Println("Вы не выбрали ничего.")
 		return
@@ -141,6 +144,17 @@ func getAllQuestionsForAllTopics(topics []persistence.TopicName) (topicToQa map[
 		}
 
 		topicToQa[topic] = questions
+	}
+
+	return
+}
+
+// terminalSize falls back to a sane default when the size cannot be read, as
+// happens when the output is not a terminal at all.
+func terminalSize() (width, height int) {
+	width, height, err := term.GetSize(os.Stdout.Fd())
+	if err != nil {
+		return fallbackWidth, fallbackHeight
 	}
 
 	return

@@ -47,7 +47,7 @@ func ChooseTopic(topics []persistence.TopicName, topicToQa map[persistence.Topic
 				DescriptionFunc(func() string {
 					return GetQuestionsFromTopics(selectedTopic, topicToQa)
 				}, &selectedTopic).
-				Title("Questions"),
+				Title(questionsPanelTitle),
 		),
 	).WithWidth(width - 5).WithHeight(height - Padding).
 		Run()

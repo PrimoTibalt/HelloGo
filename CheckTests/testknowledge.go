@@ -13,26 +13,103 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func ChooseTopicsForTest(topics []persistence.TopicName) (selectedTopics []persistence.TopicName) {
+// ChooseTopicsModel is the multi-select of topics to be tested on, with the
+// questions of the topic under the cursor listed underneath it.
+type ChooseTopicsModel struct {
+	Form          *huh.Form
+	Topics        *huh.MultiSelect[persistence.TopicName]
+	QuestionsNote *huh.Note
+	TopicToQa     map[persistence.TopicName][]string
+	HoveredTopic  persistence.TopicName
+}
+
+func ChooseTopicsForTest(topics []persistence.TopicName, topicToQa map[persistence.TopicName][]string) (selectedTopics []persistence.TopicName) {
+	width, height := terminalSize()
+	model := newChooseTopicsModel(topics, topicToQa, &selectedTopics, width-5, height-Padding)
+
+	finished, err := tea.NewProgram(model, tea.WithAltScreen(), tea.WithInput(terminalInput)).Run()
+	if err != nil {
+		panic(err)
+	}
+
+	if finished.(ChooseTopicsModel).Form.State == huh.StateAborted {
+		return []persistence.TopicName{}
+	}
+
+	return
+}
+
+func (m ChooseTopicsModel) Init() tea.Cmd {
+	return tea.Batch(tea.ClearScreen, m.Form.Init())
+}
+
+func (m ChooseTopicsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	form, cmd := m.Form.Update(msg)
+	m.Form = form.(*huh.Form)
+
+	if m.showQuestionsOfHoveredTopic() {
+		rebuildFormView(m.Form)
+	}
+
+	// The form decides itself what submits and what aborts; we only follow it
+	// out of the program once it is done.
+	if m.Form.State != huh.StateNormal {
+		return m, tea.Batch(cmd, tea.Quit)
+	}
+
+	return m, cmd
+}
+
+func (m ChooseTopicsModel) View() string {
+	return m.Form.View()
+}
+
+func newChooseTopicsModel(
+	topics []persistence.TopicName,
+	topicToQa map[persistence.TopicName][]string,
+	selectedTopics *[]persistence.TopicName,
+	width, height int,
+) ChooseTopicsModel {
 	options := make([]huh.Option[persistence.TopicName], len(topics))
 	for ptr, topic := range topics {
 		options[ptr] = huh.NewOption(string(topic), topic)
 	}
-	err := huh.NewForm(huh.NewGroup(huh.NewMultiSelect[persistence.TopicName]().
+
+	topicsSelect := huh.NewMultiSelect[persistence.TopicName]().
 		Title("Выбери топик(и) для теста:").
 		Options(options...).
-		Value(&selectedTopics))).
-		WithProgramOptions(tea.WithAltScreen()).
-		Run()
-	if err != nil {
-		if err != huh.ErrUserAborted {
-			panic(err)
-		} else {
-			return []persistence.TopicName{}
-		}
+		Value(selectedTopics)
+	questionsNote := newQuestionsNote()
+
+	model := ChooseTopicsModel{
+		Form: huh.NewForm(huh.NewGroup(topicsSelect, questionsNote)).
+			WithWidth(width).
+			WithHeight(height),
+		Topics:        topicsSelect,
+		QuestionsNote: questionsNote,
+		TopicToQa:     topicToQa,
+	}
+	// Fill the panel in before the first frame, which is drawn before any
+	// message reaches the model.
+	model.showQuestionsOfHoveredTopic()
+	rebuildFormView(model.Form)
+
+	return model
+}
+
+// showQuestionsOfHoveredTopic points the panel at the topic under the cursor.
+// A multi-select binds only what is checked, so the cursor has to be read off
+// the field itself. Reports whether the panel changed.
+func (m *ChooseTopicsModel) showQuestionsOfHoveredTopic() bool {
+	hovered, ok := m.Topics.Hovered()
+	if !ok || hovered == m.HoveredTopic {
+		return false
 	}
 
-	return
+	m.HoveredTopic = hovered
+	m.QuestionsNote.Description(GetQuestionsFromTopics(hovered, m.TopicToQa))
+
+	return true
 }
 
 func RunKnowledgeTest(selectedTopics []persistence.TopicName) {
