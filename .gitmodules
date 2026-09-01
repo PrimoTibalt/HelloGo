@@ -1,0 +1,3 @@
+[submodule "TestChecker"]
+	path = TestChecker
+	url = git@github.com:primotibalt/TestChecker.git
